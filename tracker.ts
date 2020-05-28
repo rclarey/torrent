@@ -135,7 +135,7 @@ function validateHttpAnnounce(data: Uint8Array): AnnounceBody {
       for (let i = 0; i < peers.length; i += 6) {
         decodedPeers.push({
           ip: peers.subarray(i, i + 4).join("."),
-          port: peers[i + 4] << 8 + peers[i + 5],
+          port: (peers[i + 4] << 8) + peers[i + 5],
         });
       }
       return {
@@ -155,10 +155,12 @@ function validateHttpAnnounce(data: Uint8Array): AnnounceBody {
           ip: td.decode(p.ip),
         })),
       };
-    } else if (reason instanceof Uint8Array) {
-      throw new Error(td.decode(reason));
     }
     // fallthrough
+  }
+
+  if (reason instanceof Uint8Array) {
+    throw new Error(td.decode(reason));
   }
 
   throw new Error("unknown response format");
@@ -185,7 +187,7 @@ async function announceHttp(
     downloaded: info.downloaded.toString(),
     left: info.left.toString(),
     event: info.event ?? AnnounceEvent.empty,
-    num_want: info.numWant?.toString() ?? "50",
+    numwant: info.numWant?.toString() ?? "50",
   });
 
   try {
