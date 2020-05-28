@@ -1,0 +1,19 @@
+#+TITLE: roadmap
+
+* Roadmap for initial release
+- [X] HTTP(S) Tracker Protocol
+- [X] Tracker Server Implementation
+- [X] Compact Peer Lists (Client)
+- [X] Compact Peer Lists (Server)
+- [X] UDP Tracker Server
+- [ ] UDP Tracker Protocol
+- [ ] Peer Protocol
+- [ ] Resumption of torrent
+- [ ] Torrent level abstraction
+  - [ ] Economics for choking
+  - [ ] End game mode
+- [ ] Simple CLI a la Transmission
+  - [ ] IPC (JSON over TCP)
+  - [ ] Remember metadata, progress, etc
+- [ ] Multitracker Metadata Extension
+- [ ] Magnet Links
