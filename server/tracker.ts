@@ -15,15 +15,14 @@ import {
   spreadUint8Array,
   sendHttpError,
   sendUdpError,
+  strToUint8Array,
 } from "./_helpers.ts";
 import {
   AnnounceEvent,
   AnnounceInfo,
   CompactValue,
-} from "../_shared.ts";
-import {
   UdpTrackerAction,
-} from "./_shared.ts";
+} from "../types.ts";
 import { HttpScrapeRequest, UdpScrapeRequest } from "./scrape.ts";
 
 const CONNECT_MAGIC = 0x41727101980n;
@@ -40,60 +39,6 @@ const EVENT_MAP = [
   AnnounceEvent.started,
   AnnounceEvent.stopped,
 ];
-
-export type TrackerRequest =
-  | HttpAnnounceRequest
-  | HttpScrapeRequest
-  | UdpAnnounceRequest
-  | UdpScrapeRequest;
-
-export interface TrackerServer extends AsyncIterable<TrackerRequest> {
-  /** Number of seconds to advise clients wait between regular requests */
-  interval: number;
-  /** List of allowed info hashes */
-  filterList?: Uint8Array[];
-}
-
-export interface ServerOptions {
-  /** Enable HTTP server. Defaults to true*/
-  http?: boolean;
-  /** Enable UDP server. Defaults to true*/
-  udp?: boolean;
-  /** List of allowed info hashes. If undefined then accept all incoming info hashes */
-  filterList?: Uint8Array[];
-  /** Number of seconds to advise clients wait between regular requests. Defaults to 60 */
-  interval?: number;
-}
-
-/** Create a tracker server */
-export function serveTracker(opts: ServerOptions = {}): TrackerServer {
-  if (opts.http === false && opts.udp === false) {
-    throw new Error("must listen for at least one of HTTP or UDP");
-  }
-
-  let httpServer: HttpServer | undefined;
-  let udpConn: Deno.DatagramConn | undefined;
-  if (opts.http !== false) {
-    httpServer = serveHttp({ port: 80 });
-  }
-  if (opts.udp !== false) {
-    udpConn = Deno.listenDatagram({ port: 6969, transport: "udp" });
-  }
-
-  const server = new ImplTrackerServer();
-  Object.assign(server, {
-    httpServer,
-    udpConn,
-    filterList: opts.filterList,
-    interval: opts.interval ?? DEFAULT_INTERVAL,
-  });
-
-  return server;
-}
-
-function strToUint8Array(s: string): Uint8Array {
-  return Uint8Array.from(s, (c) => c.charCodeAt(0));
-}
 
 function validateAnnounceParams(
   params: URLSearchParams,
@@ -132,15 +77,38 @@ function validateAnnounceParams(
   };
 }
 
-class ImplTrackerServer implements TrackerServer {
-  connectionIds: Set<BigInt>;
-  interval!: number;
-  filterList?: Uint8Array[];
+export type TrackerRequest =
+  | HttpAnnounceRequest
+  | HttpScrapeRequest
+  | UdpAnnounceRequest
+  | UdpScrapeRequest;
+
+export interface ServerParams {
+  /** Underlying HTTP server */
   httpServer?: HttpServer;
+  /** Underlying UDP socket */
+  udpConn?: Deno.DatagramConn;
+  /** Number of seconds to advise clients wait between regular requests */
+  interval: number;
+  /** List of allowed info hashes. If undefined then accept all incoming info hashes */
+  filterList?: Uint8Array[];
+}
+
+export class TrackerServer implements AsyncIterable<TrackerRequest> {
+  /** Set of connection IDs currently in use by UDP connections */
+  connectionIds: Set<BigInt>;
+  /** Number of seconds to advise clients wait between regular requests */
+  interval!: number;
+  /** List of allowed info hashes. If undefined then accept all incoming info hashes */
+  filterList?: Uint8Array[];
+  /** Underlying HTTP server */
+  httpServer?: HttpServer;
+  /** Underlying UDP socket */
   udpConn?: Deno.DatagramConn;
 
-  constructor() {
+  constructor(params: ServerParams) {
     this.connectionIds = new Set<BigInt>();
+    Object.assign(this, params);
   }
 
   private filteredHash(infoHash: Uint8Array): boolean {
@@ -193,7 +161,7 @@ class ImplTrackerServer implements TrackerServer {
         const strHashes = params.getAll("info_hash") ?? [];
         yield new HttpScrapeRequest(
           httpRequest,
-          strHashes.map((s) => Uint8Array.from(s, (c) => c.charCodeAt(0))),
+          strHashes.map(strToUint8Array),
         );
       } else {
         // TODO
@@ -318,7 +286,44 @@ class ImplTrackerServer implements TrackerServer {
       return mux.iterate();
     } else if (this.httpServer) {
       return this.iterateHttpRequests();
+    } else if (this.udpConn) {
+      return this.iterateUdpRequests();
     }
-    return this.iterateUdpRequests();
   }
+}
+
+export interface ServeOptions {
+  /** Enable HTTP server. Defaults to true*/
+  http?: boolean;
+  /** Enable UDP server. Defaults to true*/
+  udp?: boolean;
+  /** List of allowed info hashes. If undefined then accept all incoming info hashes */
+  filterList?: Uint8Array[];
+  /** Number of seconds to advise clients wait between regular requests. Defaults to 60 */
+  interval?: number;
+}
+
+/** Create a tracker server */
+export function serveTracker(opts: ServeOptions = {}): TrackerServer {
+  if (opts.http === false && opts.udp === false) {
+    throw new Error("must listen for at least one of HTTP or UDP");
+  }
+
+  let httpServer: HttpServer | undefined;
+  let udpConn: Deno.DatagramConn | undefined;
+  if (opts.http !== false) {
+    httpServer = serveHttp({ port: 80 });
+  }
+  if (opts.udp !== false) {
+    udpConn = Deno.listenDatagram({ port: 6969, transport: "udp" });
+  }
+
+  const server = new TrackerServer({
+    httpServer,
+    udpConn,
+    filterList: opts.filterList,
+    interval: opts.interval ?? DEFAULT_INTERVAL,
+  });
+
+  return server;
 }

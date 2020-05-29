@@ -6,10 +6,11 @@ import {
   AnnounceInfo,
   Peer,
   ScrapeList,
-} from "./_shared.ts";
+} from "./types.ts";
 
 const FETCH_TIMEOUT = 1000 * 10;
 
+/** An error thrown when a fetch request times out */
 export class TimeoutError extends Error {
   constructor() {
     super("fetch request timed out");
@@ -84,6 +85,11 @@ async function scrapeHttp(
   }
 }
 
+/**
+ * Make a scrape request to the tracker URL
+ *
+ * Passing an empty array for `infoHashes` requests info for all torrents
+ */
 export function scrape(
   url: string,
   infoHashes: Uint8Array[],
@@ -198,6 +204,7 @@ async function announceHttp(
   }
 }
 
+/** Make an announce request to the tracker URL */
 export function announce(
   url: string,
   req: AnnounceInfo,

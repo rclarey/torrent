@@ -96,3 +96,7 @@ export async function sendUdpError(
     await conn.send(body, addr);
   } catch {}
 }
+
+export function strToUint8Array(s: string): Uint8Array {
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+}

@@ -3,11 +3,15 @@
 import { AnnounceRequest } from "./announce.ts";
 import { ScrapeRequest } from "./scrape.ts";
 import {
-  ServerOptions,
+  ServeOptions,
   serveTracker,
 } from "./tracker.ts";
-import { PeerInfo as BasePeerInfo, PeerState } from "./_shared.ts";
-import { AnnounceEvent, ScrapeList } from "../_shared.ts";
+import {
+  AnnounceEvent,
+  PeerInfo as BasePeerInfo,
+  PeerState,
+  ScrapeList,
+} from "../types.ts";
 
 const CLEANUP_INTERVAL = 1000 * 60 * 15;
 
@@ -157,19 +161,17 @@ function handleScrape(
 }
 
 /** Initialize and run a tracker */
-export async function runTracker(opts?: ServerOptions): Promise<void> {
+export async function runTracker(opts?: ServeOptions): Promise<void> {
   const server = serveTracker(opts);
   const infoMap = new Map<string, FileInfo>();
 
-  // sweep and remove "dead" clients
-  setInterval(() => sweepAndDelete(infoMap), CLEANUP_INTERVAL); // 15min
+  // sweep and delete inactive clients
+  setInterval(() => sweepAndDelete(infoMap), CLEANUP_INTERVAL);
 
   for await (const req of server) {
     if (req instanceof AnnounceRequest) {
-      console.log("got announce");
       handleAnnounce(req, infoMap);
     } else if (req instanceof ScrapeRequest) {
-      console.log("got scrape");
       handleScrape(req, infoMap);
     }
   }
@@ -177,5 +179,5 @@ export async function runTracker(opts?: ServerOptions): Promise<void> {
 
 if (import.meta.main) {
   console.log("Serving tracker ⚡\n- HTTP on port 80\n- UDP on port 6969");
-  runTracker({ udp: false });
+  runTracker();
 }

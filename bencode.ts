@@ -2,6 +2,7 @@
 
 export interface BencodeableList extends Array<Bencodeable> {}
 export interface BencodeableDict extends Record<string, Bencodeable> {}
+/** Data that is able to be bencoded */
 export type Bencodeable =
   | Uint8Array
   | number
@@ -46,9 +47,10 @@ function encode(byteArray: number[], data: Bencodeable): void {
   }
 }
 
-export function bencode(allData: Bencodeable): Uint8Array {
+/** Encode `data` into a byte array suitable for transmitting */
+export function bencode(data: Bencodeable): Uint8Array {
   const byteArray: number[] = [];
-  encode(byteArray, allData);
+  encode(byteArray, data);
   return Uint8Array.from(byteArray);
 }
 
@@ -137,6 +139,7 @@ function decode(data: Uint8Array, start: number): [number, Bencodeable] {
   }
 }
 
+/** Decode `data` from a byte array into native data types */
 export function bdecode(data: Uint8Array): Bencodeable {
   return decode(data, 0)[1];
 }

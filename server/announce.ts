@@ -9,17 +9,15 @@ import {
   AnnounceEvent,
   AnnounceInfo,
   CompactValue,
-} from "../_shared.ts";
-import {
   PeerInfo,
   PeerState,
   UdpTrackerAction,
-} from "./_shared.ts";
+} from "../types.ts";
 import {
-  writeInt,
-  spreadUint8Array,
   sendHttpError,
   sendUdpError,
+  spreadUint8Array,
+  writeInt,
 } from "./_helpers.ts";
 
 export abstract class AnnounceRequest implements AnnounceInfo {

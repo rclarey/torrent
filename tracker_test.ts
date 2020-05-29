@@ -5,7 +5,7 @@ import {
 import { serve } from "https://deno.land/std@0.52.0/http/mod.ts#^";
 
 import { announce, scrape } from "./tracker.ts";
-import { AnnounceEvent } from "./_shared.ts";
+import { AnnounceEvent } from "./types.ts";
 
 Deno.test("announce (HTTP) - full", async () => {
   async function mockServer() {

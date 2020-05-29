@@ -6,14 +6,14 @@ import {
 
 import { bencode } from "../bencode.ts";
 import {
+  ScrapeList,
   UdpTrackerAction,
-} from "./_shared.ts";
-import { ScrapeList } from "../_shared.ts";
+} from "../types.ts";
 import {
-  writeInt,
-  spreadUint8Array,
   sendHttpError,
   sendUdpError,
+  spreadUint8Array,
+  writeInt,
 } from "./_helpers.ts";
 
 type ScrapeInfo = {

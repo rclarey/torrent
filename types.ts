@@ -59,8 +59,33 @@ export interface AnnounceInfo {
 }
 
 export type ScrapeList = {
+  /** Number of peers who have the whole file */
   complete: number;
+  /** Number of completed downloads */
   downloaded: number;
+  /** Number of peers who do not yet have the whole file */
   incomplete: number;
+  /** Info hash for the file */
   infoHash: Uint8Array;
 }[];
+
+export const enum PeerState {
+  /** The peer has the whole file */
+  seeder = "seeder",
+  /** The peer does not have the whole file */
+  leecher = "leecher",
+}
+
+export interface PeerInfo extends Peer {
+  /** Peer's self-selected ID */
+  id: Uint8Array;
+  /** Whether this peer is a leecher or seeder */
+  state: PeerState;
+}
+
+export const enum UdpTrackerAction {
+  connect = 0,
+  announce = 1,
+  scrape = 2,
+  error = 3,
+}
