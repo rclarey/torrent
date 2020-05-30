@@ -27,9 +27,13 @@ function evaluateState(req: AnnounceRequest): PeerState {
   return PeerState.leecher;
 }
 
-function randomSelection(peers: Map<string, PeerInfo>, n: number): PeerInfo[] {
+function randomSelection(
+  self: string,
+  peers: Map<string, PeerInfo>,
+  n: number,
+): PeerInfo[] {
   if (peers.size <= n) {
-    return [...peers.values()];
+    return [...peers.values()].filter((p) => `${p.ip}:${p.port}` !== self);
   }
 
   const keys = [...peers.keys()];
@@ -37,7 +41,7 @@ function randomSelection(peers: Map<string, PeerInfo>, n: number): PeerInfo[] {
   const out: PeerInfo[] = [];
   while (n > 0) {
     const key = keys[(Math.random() * keys.length) | 0];
-    if (!picked.has(key)) {
+    if (key !== self && !picked.has(key)) {
       picked.add(key);
       out.push(peers.get(key)!);
       n -= 1;
@@ -136,7 +140,7 @@ function handleAnnounce(
     return req.respond([]);
   }
 
-  return req.respond(randomSelection(fileInfo.peers, req.numWant));
+  return req.respond(randomSelection(strPeerId, fileInfo.peers, req.numWant));
 }
 
 function handleScrape(
