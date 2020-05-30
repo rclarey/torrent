@@ -161,13 +161,19 @@ export interface AnnounceResponse {
 
 function validateHttpAnnounce(data: Uint8Array): AnnounceResponse {
   const td = new TextDecoder();
+  let decoded: any;
+  try {
+    decoded = bdecode(data);
+  } catch {
+    throw new Error("unknown response format");
+  }
   const {
     complete,
     incomplete,
     interval,
     peers,
     ["failure reason"]: reason,
-  } = bdecode(data) as any;
+  } = decoded;
 
   if (
     typeof complete === "number" && typeof incomplete === "number" &&
