@@ -8,22 +8,22 @@ import { MuxAsyncIterator } from "https://deno.land/std@0.52.0/async/mux_async_i
 import { equal } from "https://deno.land/std@0.52.0/bytes/mod.ts#^";
 
 import { HttpAnnounceRequest, UdpAnnounceRequest } from "./announce.ts";
-import {
-  readInt,
-  readBigInt,
-  writeInt,
-  spreadUint8Array,
-  sendHttpError,
-  sendUdpError,
-  strToUint8Array,
-} from "./_helpers.ts";
+import { HttpScrapeRequest, UdpScrapeRequest } from "./scrape.ts";
 import {
   AnnounceEvent,
   AnnounceInfo,
   CompactValue,
   UdpTrackerAction,
+  UDP_EVENT_MAP,
 } from "../types.ts";
-import { HttpScrapeRequest, UdpScrapeRequest } from "./scrape.ts";
+import { sendHttpError, sendUdpError } from "./_helpers.ts";
+import {
+  readInt,
+  readBigInt,
+  writeInt,
+  spreadUint8Array,
+  strToUint8Array,
+} from "../_bytes.ts";
 
 const CONNECT_MAGIC = 0x41727101980n;
 const DEFAULT_WANT = 50;
@@ -32,13 +32,6 @@ const DEFAULT_INTERVAL = 600; // 10min
 const UDP_CONNECT_LENGTH = 16;
 const UDP_ANNOUNCE_LENGTH = 98;
 const UDP_SCRAPE_LENGTH = 16;
-
-const EVENT_MAP = [
-  AnnounceEvent.empty,
-  AnnounceEvent.completed,
-  AnnounceEvent.started,
-  AnnounceEvent.stopped,
-];
 
 function validateAnnounceParams(
   params: URLSearchParams,
@@ -96,7 +89,7 @@ export interface ServerParams {
 
 export class TrackerServer implements AsyncIterable<TrackerRequest> {
   /** Set of connection IDs currently in use by UDP connections */
-  connectionIds: Set<BigInt>;
+  connectionIds: Set<bigint>;
   /** Number of seconds to advise clients wait between regular requests */
   interval!: number;
   /** List of allowed info hashes. If undefined then accept all incoming info hashes */
@@ -107,7 +100,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
   udpConn?: Deno.DatagramConn;
 
   constructor(params: ServerParams) {
-    this.connectionIds = new Set<BigInt>();
+    this.connectionIds = new Set<bigint>();
     Object.assign(this, params);
   }
 
@@ -245,7 +238,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             downloaded: readBigInt(data, 8, 56),
             left: readBigInt(data, 8, 64),
             uploaded: readBigInt(data, 8, 72),
-            event: EVENT_MAP[readInt(data, 4, 80)],
+            event: UDP_EVENT_MAP[readInt(data, 4, 80)],
             ip: Array.from(data.subarray(84, 88)).map(String).join("."),
             key: data.subarray(88, 92),
             numWant: Math.min(DEFAULT_WANT, readInt(data, 4, 92)),
@@ -289,6 +282,8 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
     } else if (this.udpConn) {
       return this.iterateUdpRequests();
     }
+
+    throw new Error("must listen for at least one of HTTP or UDP");
   }
 }
 
@@ -305,10 +300,6 @@ export interface ServeOptions {
 
 /** Create a tracker server */
 export function serveTracker(opts: ServeOptions = {}): TrackerServer {
-  if (opts.http === false && opts.udp === false) {
-    throw new Error("must listen for at least one of HTTP or UDP");
-  }
-
   let httpServer: HttpServer | undefined;
   let udpConn: Deno.DatagramConn | undefined;
   if (opts.http !== false) {

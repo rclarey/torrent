@@ -13,12 +13,8 @@ import {
   PeerState,
   UdpTrackerAction,
 } from "../types.ts";
-import {
-  sendHttpError,
-  sendUdpError,
-  spreadUint8Array,
-  writeInt,
-} from "./_helpers.ts";
+import { sendHttpError, sendUdpError } from "./_helpers.ts";
+import { spreadUint8Array, writeInt } from "../_bytes.ts";
 
 export abstract class AnnounceRequest implements AnnounceInfo {
   /** SHA1 hash of the bencoded info dictionary */
@@ -30,11 +26,11 @@ export abstract class AnnounceRequest implements AnnounceInfo {
   /** The port at which the client is listening */
   port!: number;
   /** Number of bytes uploaded */
-  uploaded!: BigInt;
+  uploaded!: bigint;
   /** Number of bytes downloaded */
-  downloaded!: BigInt;
+  downloaded!: bigint;
   /** Number of bytes the client still has to download */
-  left!: BigInt;
+  left!: bigint;
   /** Indicates the purpose of the request */
   event!: AnnounceEvent;
   /** Number of peers that the client would like to receive from the tracker */

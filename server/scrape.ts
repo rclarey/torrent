@@ -9,12 +9,8 @@ import {
   ScrapeList,
   UdpTrackerAction,
 } from "../types.ts";
-import {
-  sendHttpError,
-  sendUdpError,
-  spreadUint8Array,
-  writeInt,
-} from "./_helpers.ts";
+import { sendHttpError, sendUdpError } from "./_helpers.ts";
+import { spreadUint8Array, writeInt } from "../_bytes.ts";
 
 type ScrapeInfo = {
   complete: number;

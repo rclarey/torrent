@@ -14,6 +14,14 @@ export enum AnnounceEvent {
   stopped = "stopped",
 }
 
+// Mapping from AnnounceEvent to int
+export const UDP_EVENT_MAP = [
+  AnnounceEvent.empty,
+  AnnounceEvent.completed,
+  AnnounceEvent.started,
+  AnnounceEvent.stopped,
+];
+
 export const enum CompactValue {
   /** Compact peer list is accepted */
   compact = "1",
@@ -40,11 +48,11 @@ export interface AnnounceInfo {
   /** The port at which the client is listening */
   port: number;
   /** Number of bytes uploaded */
-  uploaded: BigInt;
+  uploaded: bigint;
   /** Number of bytes downloaded */
-  downloaded: BigInt;
+  downloaded: bigint;
   /** Number of bytes the client still has to download */
-  left: BigInt;
+  left: bigint;
   /** Indicates the purpose of the request */
   event: AnnounceEvent;
   /** Number of peers that the client would like to receive from the tracker */
