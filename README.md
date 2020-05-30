@@ -4,10 +4,10 @@
 <hr>
 
 ## A bittorrent client for Deno
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/rclarey/bt/CI)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/rclarey/bt)
-![Documentation](https://doc.deno.land/badge.svg)
-![MIT License](https://img.shields.io/github/license/rclarey/bt)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/rclarey/bt/CI)](https://github.com/rclarey/bt/actions)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/rclarey/bt)](https://github.com/rclarey/bt/releases)
+[![Documentation](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/raw.githubusercontent.com/rclarey/bt/master/mod.ts)
+[![MIT License](https://img.shields.io/github/license/rclarey/bt)](https://github.com/rclarey/bt/blob/master/LICENSE)
 
 bt is currently very early in development
 
