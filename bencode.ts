@@ -75,8 +75,9 @@ function decodeString(data: Uint8Array, start: number): [number, Uint8Array] {
   const ind = data.indexOf(COLON, start);
   const digits = data.subarray(start, ind);
 
-  const length = Number(td.decode(Uint8Array.from(digits)));
-  if (length === 0) {
+  // use parseInt because `parseInt("") -> NaN` whereas `Number("") -> 0`
+  const length = parseInt(td.decode(Uint8Array.from(digits)));
+  if (Number.isNaN(length) || length < 0) {
     throw new Error("Failed to bdecode. Malformed string");
   }
 
