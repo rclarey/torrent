@@ -21,6 +21,9 @@ const FETCH_TIMEOUT = 1000 * 10;
 const UDP_CONNECT_MAGIC = 0x41727101980n;
 const UDP_CONNECT_LENGTH = 16;
 const UDP_ANNOUNCE_LENGTH = 20;
+const UDP_SCRAPE_LENGTH = 8;
+const UDP_ERROR_LENGTH = 9;
+const MAX_UDP_ATTEMPTS = 8;
 
 /** An error thrown when a request times out */
 export class TimeoutError extends Error {
@@ -104,6 +107,140 @@ async function scrapeHttp(
   }
 }
 
+function deriveUdpError(action: UdpTrackerAction, arr: Uint8Array): Error {
+  if (action === UdpTrackerAction.error && arr.length >= UDP_ERROR_LENGTH) {
+    const reason = new TextDecoder().decode(arr.subarray(8));
+    return new Error(`tracker sent error: ${reason}`);
+  }
+  return new Error("malformed response");
+}
+
+async function withConnect<T>(
+  url: string,
+  reqBody: Uint8Array,
+  func: (response: Uint8Array) => Promise<T>,
+): Promise<T> {
+  const match = url.match(/udp:\/\/(.+?):(\d+)\/?/);
+  if (!match) {
+    throw new Error("bad url");
+  }
+  const serverAddr = {
+    hostname: match[1],
+    port: Number(match[2]),
+    transport: "udp" as "udp",
+  };
+  const socket = Deno.listenDatagram({ port: 6961, transport: "udp" });
+  let retryAttempt = 0;
+  let connectionId: Uint8Array | null = null;
+
+  while (retryAttempt < MAX_UDP_ATTEMPTS) {
+    if (connectionId === null) {
+      const connectBody = new Uint8Array(16);
+      writeBigInt(UDP_CONNECT_MAGIC, connectBody, 8, 0);
+      writeInt(UdpTrackerAction.connect, connectBody, 4, 8);
+      const transactionId = crypto.getRandomValues(
+        connectBody.subarray(12, 16),
+      );
+
+      let res: Uint8Array;
+      try {
+        res = await withTimeout(async (): Promise<Uint8Array> => {
+          await socket.send(connectBody, serverAddr);
+          return (await socket.receive())[0];
+        }, 1000 * 15 * (2 ** retryAttempt));
+      } catch {
+        retryAttempt += 1;
+        continue;
+      }
+
+      const action = readInt(res, 4, 0) as UdpTrackerAction;
+      const resTransId = res.subarray(4, 8);
+
+      if (!equal(transactionId, resTransId)) {
+        // not our transaction id -> ignore
+        continue;
+      }
+
+      if (
+        res.length < UDP_CONNECT_LENGTH ||
+        action !== UdpTrackerAction.connect
+      ) {
+        throw deriveUdpError(action, res);
+      }
+
+      // connection is valid for one minute
+      connectionId = res.subarray(8, 16);
+      setTimeout(() => connectionId = null, 1000 * 60);
+    } else {
+      spreadUint8Array(connectionId, reqBody, 0);
+      const transactionId = crypto.getRandomValues(reqBody.subarray(12, 16));
+
+      let res: Uint8Array;
+      try {
+        res = await withTimeout(async () => {
+          await socket.send(reqBody, serverAddr);
+          return (await socket.receive())[0];
+        }, 1000 * 15 * (2 ** retryAttempt));
+      } catch {
+        retryAttempt += 1;
+        continue;
+      }
+
+      const resTransId = res.subarray(4, 8);
+      if (!equal(transactionId, resTransId)) {
+        // not our transaction id -> ignore
+        continue;
+      }
+
+      // we have our result! now we can apply func
+      socket.close();
+      return func(res);
+    }
+  }
+
+  socket.close();
+  throw new Error("could not connect to tracker");
+}
+
+async function scrapeUdp(
+  url: string,
+  infoHashes: Uint8Array[],
+): Promise<ScrapeList> {
+  const body = new Uint8Array(16 + 20 * infoHashes.length);
+  writeInt(UdpTrackerAction.scrape, body, 4, 8);
+  for (const [i, hash] of infoHashes.entries()) {
+    spreadUint8Array(hash, body, 16 + 20 * i);
+  }
+
+  return withConnect(
+    url,
+    body,
+    async (result) => {
+      const action = readInt(result, 4, 0);
+
+      if (
+        result.length < UDP_SCRAPE_LENGTH ||
+        action !== UdpTrackerAction.scrape
+      ) {
+        throw deriveUdpError(action, result);
+      }
+
+      const nHashes = ((result.length - UDP_SCRAPE_LENGTH) / 12) | 0;
+      const list: ScrapeList = [];
+      for (const [i, infoHash] of infoHashes.slice(0, nHashes).entries()) {
+        list.push({
+          complete: readInt(result, 4, 8 + 12 * i),
+          downloaded: readInt(result, 4, 12 + 12 * i),
+          incomplete: readInt(result, 4, 16 + 12 * i),
+          infoHash,
+        });
+      }
+
+      return list;
+    },
+  );
+}
+
 /**
  * Make a scrape request to the tracker URL
  *
@@ -128,7 +265,10 @@ export function scrape(
       );
     }
 
-    case "udp": // TODO
+    case "udp": {
+      return scrapeUdp(url, infoHashes);
+    }
+
     default:
       throw new Error(`${protocol} is not supported for trackers`);
   }
@@ -235,91 +375,17 @@ async function announceHttp(
   }
 }
 
-const MAX_RETRY_ATTEMPTS = 8;
-
-async function withConnect<T>(
-  url: string,
-  func: (
-    socket: Deno.DatagramConn,
-    addr: Deno.Addr,
-    connectionId: Uint8Array,
-  ) => Promise<T>,
-): Promise<T> {
-  const match = url.match(/udp:\/\/(.+?):(\d+)\/?/);
-  if (!match) {
-    throw new Error("bad url");
-  }
-  const serverAddr = {
-    hostname: match[1],
-    port: Number(match[2]),
-    transport: "udp" as "udp",
-  };
-  const transactionId = new Uint8Array(4);
-  const socket = Deno.listenDatagram({ port: 6961, transport: "udp" });
-  let retryAttempt = 0;
-  let connectionId: Uint8Array | null = null;
-
-  while (retryAttempt < MAX_RETRY_ATTEMPTS) {
-    try {
-      if (connectionId === null) {
-        crypto.getRandomValues(transactionId);
-        const body = new Uint8Array(16);
-        writeBigInt(UDP_CONNECT_MAGIC, body, 8, 0);
-        writeInt(UdpTrackerAction.connect, body, 4, 8);
-        spreadUint8Array(transactionId, body, 12);
-
-        const res = await withTimeout(async (): Promise<Uint8Array> => {
-          await socket.send(body, serverAddr);
-          return (await socket.receive())[0];
-        }, 1000 * 15 * (2 ** retryAttempt));
-
-        const action = readInt(res, 4, 0) as UdpTrackerAction;
-        const resTransId = res.subarray(4, 8);
-        connectionId = res.subarray(8, 16);
-        if (
-          res.length < UDP_CONNECT_LENGTH ||
-          action !== UdpTrackerAction.connect ||
-          !equal(transactionId, resTransId)
-        ) {
-          // retry connection
-          connectionId = null;
-          continue;
-        }
-
-        // connection is valid for one minute
-        setTimeout(() => connectionId = null, 1000 * 60);
-      } else {
-        crypto.getRandomValues(transactionId);
-        return withTimeout(async () => {
-          const r = await func(socket, serverAddr, connectionId!);
-          socket.close();
-          return r;
-        }, 1000 * 15 * (2 ** retryAttempt));
-      }
-    } catch (e) {
-      // allows func to throw other errors to indicate retry without increasing timeout
-      if (e instanceof TimeoutError) {
-        retryAttempt += 1;
-      }
-    }
-  }
-
-  socket.close();
-  throw new TimeoutError();
-}
-
 async function announceUdp(
   url: string,
   info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
   const ipParts = info.ip.split(".").map(Number);
   if (ipParts.length !== 4 || ipParts.some((n) => Number.isNaN(n))) {
-    throw new Error("Bad peer ip");
+    throw new Error("Bad peer ip passed to announce");
   }
 
   const body = new Uint8Array(98);
   writeInt(UdpTrackerAction.announce, body, 4, 8);
-  const transactionId = crypto.getRandomValues(body.subarray(12, 16));
   spreadUint8Array(info.infoHash, body, 16);
   spreadUint8Array(info.peerId, body, 36);
   writeBigInt(info.downloaded, body, 8, 56);
@@ -336,36 +402,31 @@ async function announceUdp(
   writeInt(info.numWant ?? Number.MAX_SAFE_INTEGER, body, 4, 92);
   writeInt(info.port, body, 2, 96);
 
-  const res = await withConnect(
+  return await withConnect(
     url,
-    async (socket, addr, connectionId): Promise<Uint8Array> => {
-      spreadUint8Array(connectionId, body, 0);
-      await socket.send(body, addr);
-      const [result] = await socket.receive();
+    body,
+    async (result) => {
       const action = readInt(result, 4, 0);
-      const resTransId = result.subarray(4, 8);
 
       if (
         result.length < UDP_ANNOUNCE_LENGTH ||
-        action !== UdpTrackerAction.announce ||
-        !equal(transactionId, resTransId)
+        action !== UdpTrackerAction.announce
       ) {
-        throw new Error("malformed response");
+        throw deriveUdpError(action, result);
       }
 
-      return result;
+      const interval = readInt(result, 4, 8);
+      const incomplete = readInt(result, 4, 12);
+      const complete = readInt(result, 4, 16);
+      const peers = readCompactPeers(result.subarray(20));
+
+      if (!peers) {
+        throw new Error("unknown peer format");
+      }
+
+      return { interval, complete, incomplete, peers };
     },
   );
-
-  const interval = readInt(res, 4, 8);
-  const incomplete = readInt(res, 4, 12);
-  const complete = readInt(res, 4, 16);
-  const peers = readCompactPeers(res.subarray(20));
-  if (!peers) {
-    throw new Error("unknown response format");
-  }
-
-  return { interval, complete, incomplete, peers };
 }
 
 /** Make an announce request to the tracker URL */
