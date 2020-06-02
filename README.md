@@ -1,24 +1,13 @@
 <p align="center">
 <img width="256" alt="bt" src="https://user-images.githubusercontent.com/15111129/83200372-2c6bce00-a111-11ea-88cc-6531d9d3d97d.png">
 </p>
-
-<h3 align="center">a bittorrent client for deno</h3>
-<br>
-<p align="center">
-  <a href="https://github.com/rclarey/bt/actions">
-    <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/rclarey/bt/CI">
-  </a>
-  <a href="https://github.com/rclarey/bt/releases">
-    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/rclarey/bt">
-  </a>
-  <a href="https://doc.deno.land/https/raw.githubusercontent.com/rclarey/bt/master/mod.ts">
-    <img alt="Documentation" src="https://doc.deno.land/badge.svg">
-  </a>
-  <a href="https://github.com/rclarey/bt/blob/master/LICENSE">
-    <img alt="GitHub" src="https://img.shields.io/github/license/rclarey/bt">
-  </a>
-</p>
 <hr>
+
+## A bittorrent client for Deno
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/rclarey/bt/CI)](https://github.com/rclarey/bt/actions)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/rclarey/bt)](https://github.com/rclarey/bt/releases)
+[![Documentation](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/raw.githubusercontent.com/rclarey/bt/master/mod.ts)
+[![MIT License](https://img.shields.io/github/license/rclarey/bt)](https://github.com/rclarey/bt/blob/master/LICENSE)
 
 bt is currently very early in development
 
