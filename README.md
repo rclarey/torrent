@@ -16,11 +16,11 @@ bt is currently very early in development
 - [X] Tracker Server Implementation
 - [X] Compact Peer Lists (Client)
 - [X] Compact Peer Lists (Server)
-- [X] UDP Tracker Server
-- [ ] UDP Tracker Protocol
+- [X] UDP Trackers (Server)
+- [X] UDP Trackers (Client)
 - [ ] Peer Protocol
-- [ ] Resumption of torrent
 - [ ] Torrent level abstraction
+  - [ ] Resumption of torrent
   - [ ] Economics for choking
   - [ ] End game mode
 - [ ] Simple proof-of-concept CLI
