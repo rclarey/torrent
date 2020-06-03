@@ -86,6 +86,6 @@ export function spreadUint8Array(
   }
 }
 
-export function strToUint8Array(s: string): Uint8Array {
+export function readStringAsBytes(s: string): Uint8Array {
   return Uint8Array.from(s, (c) => c.charCodeAt(0));
 }

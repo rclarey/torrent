@@ -1,8 +1,8 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-import { AnnounceRequest } from "./announce.ts";
-import { ScrapeRequest } from "./scrape.ts";
 import {
+  AnnounceRequest,
+  ScrapeRequest,
   ServeOptions,
   serveTracker,
 } from "./tracker.ts";
