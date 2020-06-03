@@ -32,7 +32,10 @@ export class TimeoutError extends Error {
   }
 }
 
-function withTimeout<T>(func: () => Promise<T>, timeout: number): Promise<T> {
+export function withTimeout<T>(
+  func: () => Promise<T>,
+  timeout: number,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const to = setTimeout(
       () => reject(new TimeoutError()),
@@ -57,13 +60,19 @@ function timedFetch(
 
 function validateHttpScrape(data: Uint8Array): ScrapeList {
   const td = new TextDecoder();
+  let decoded: any;
+  try {
+    decoded = bdecode(data);
+  } catch {
+    throw new Error("unknown response format");
+  }
   const {
     files,
     ["failure reason"]: reason,
-  } = bdecode(data) as any;
+  } = decoded;
 
   if (reason) {
-    throw new Error(td.decode(reason));
+    throw new Error(`tracker sent error: ${td.decode(reason)}`);
   }
 
   if (typeof files === "object") {
@@ -95,16 +104,12 @@ async function scrapeHttp(
   url: string,
   infoHashes: Uint8Array[],
 ): Promise<ScrapeList> {
-  try {
-    if (infoHashes.length > 0) {
-      const strHashes = infoHashes.map((hash) => String.fromCharCode(...hash));
-      url += `?info_hash=${strHashes.join("&info_hash=")}`;
-    }
-    const res = await timedFetch(url);
-    return validateHttpScrape(new Uint8Array(await res.arrayBuffer()));
-  } catch (e) {
-    throw new Error(`scrape failed: ${e.message}`);
+  if (infoHashes.length > 0) {
+    const strHashes = infoHashes.map((hash) => String.fromCharCode(...hash));
+    url += `?info_hash=${strHashes.join("&info_hash=")}`;
   }
+  const res = await timedFetch(url);
+  return validateHttpScrape(new Uint8Array(await res.arrayBuffer()));
 }
 
 function deriveUdpError(action: UdpTrackerAction, arr: Uint8Array): Error {
@@ -112,26 +117,27 @@ function deriveUdpError(action: UdpTrackerAction, arr: Uint8Array): Error {
     const reason = new TextDecoder().decode(arr.subarray(8));
     return new Error(`tracker sent error: ${reason}`);
   }
-  return new Error("malformed response");
+  return new Error("unknown response format");
 }
 
-async function withConnect<T>(
+export async function withConnect<T>(
   url: string,
   reqBody: Uint8Array,
-  func: (response: Uint8Array) => Promise<T>,
+  func: (response: Uint8Array) => T,
 ): Promise<T> {
   const match = url.match(/udp:\/\/(.+?):(\d+)\/?/);
   if (!match) {
     throw new Error("bad url");
   }
-  const serverAddr = {
+  const serverAddr: Deno.Addr = {
     hostname: match[1],
     port: Number(match[2]),
-    transport: "udp" as "udp",
+    transport: "udp",
   };
   const socket = Deno.listenDatagram({ port: 6961, transport: "udp" });
   let retryAttempt = 0;
   let connectionId: Uint8Array | null = null;
+  let connTimer: number | undefined;
 
   while (retryAttempt < MAX_UDP_ATTEMPTS) {
     if (connectionId === null) {
@@ -165,12 +171,13 @@ async function withConnect<T>(
         res.length < UDP_CONNECT_LENGTH ||
         action !== UdpTrackerAction.connect
       ) {
+        socket.close();
         throw deriveUdpError(action, res);
       }
 
       // connection is valid for one minute
       connectionId = res.subarray(8, 16);
-      setTimeout(() => connectionId = null, 1000 * 60);
+      connTimer = setTimeout(() => connectionId = null, 1000 * 60);
     } else {
       spreadUint8Array(connectionId, reqBody, 0);
       const transactionId = crypto.getRandomValues(reqBody.subarray(12, 16));
@@ -194,11 +201,13 @@ async function withConnect<T>(
 
       // we have our result! now we can apply func
       socket.close();
+      clearTimeout(connTimer);
       return func(res);
     }
   }
 
   socket.close();
+  clearTimeout(connTimer);
   throw new Error("could not connect to tracker");
 }
 
@@ -215,7 +224,7 @@ async function scrapeUdp(
   return withConnect(
     url,
     body,
-    async (result) => {
+    (result) => {
       const action = readInt(result, 4, 0);
 
       if (
@@ -345,7 +354,7 @@ function validateHttpAnnounce(data: Uint8Array): AnnounceResponse {
   }
 
   if (reason instanceof Uint8Array) {
-    throw new Error(td.decode(reason));
+    throw new Error(`tracker sent error: ${td.decode(reason)}`);
   }
 
   throw new Error("unknown response format");
@@ -367,12 +376,8 @@ async function announceHttp(
     numwant: info.numWant?.toString() ?? "50",
   });
 
-  try {
-    const res = await timedFetch(`${url}?${params}`);
-    return validateHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
-  } catch (e) {
-    throw new Error(`announce failed: ${e.message}`);
-  }
+  const res = await timedFetch(`${url}?${params}`);
+  return validateHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
 async function announceUdp(
@@ -402,10 +407,10 @@ async function announceUdp(
   writeInt(info.numWant ?? Number.MAX_SAFE_INTEGER, body, 4, 92);
   writeInt(info.port, body, 2, 96);
 
-  return await withConnect(
+  return withConnect(
     url,
     body,
-    async (result) => {
+    (result) => {
       const action = readInt(result, 4, 0);
 
       if (
