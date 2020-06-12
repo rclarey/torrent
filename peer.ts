@@ -185,6 +185,12 @@ async function readN(reader: Deno.Reader, n: number): Promise<Uint8Array> {
   return out;
 }
 
+function checkValidLength(actual: number, expected: number): void {
+  if (actual !== expected) {
+    throw new Error("malformed message");
+  }
+}
+
 export async function* iteratePeerMsgs(
   conn: Deno.Conn,
 ): AsyncIterableIterator<PeerMsg> {
@@ -197,11 +203,58 @@ export async function* iteratePeerMsgs(
       }
 
       const id = (await readN(conn, 1))[0];
+      switch (id) {
+        case MsgId.choke:
+        case MsgId.unchoke:
+        case MsgId.interested:
+        case MsgId.uninterested: {
+          checkValidLength(length, 1);
+          yield { id, conn };
+        }
 
-      // TODO handle recognized messages
+        case MsgId.have: {
+          checkValidLength(length, 5);
+          const index = readInt(await readN(conn, 4), 4, 0);
+          yield { id, conn, index };
+        }
 
-      // unrecognized message -> read the whole message but ignore it
-      await readN(conn, length - 1);
+        case MsgId.bitfield: {
+          const bitfield = await readN(conn, length - 1);
+          yield { id, conn, bitfield };
+        }
+
+        case MsgId.request:
+        case MsgId.cancel: {
+          checkValidLength(length, 13);
+          const arr = await readN(conn, 12);
+          yield {
+            id,
+            conn,
+            index: readInt(arr, 4, 0),
+            offset: readInt(arr, 4, 4),
+            length: readInt(arr, 4, 8),
+          };
+        }
+
+        case MsgId.piece: {
+          if (length < 9) {
+            throw new Error("malformed message");
+          }
+          const arr = await readN(conn, 8);
+          yield {
+            id,
+            conn,
+            index: readInt(arr, 4, 0),
+            offset: readInt(arr, 4, 4),
+            block: await readN(conn, length - 9),
+          };
+        }
+
+        default: {
+          // unrecognized message -> read the whole message but ignore it
+          await readN(conn, length - 1);
+        }
+      }
     }
   } catch (e) {
     if (e instanceof Deno.errors.BadResource) {
@@ -211,16 +264,3 @@ export async function* iteratePeerMsgs(
     }
   }
 }
-
-/*
-keep-alive: <len=0000>
-choke: <len=0001><id=0>
-unchoke: <len=0001><id=1>
-interested: <len=0001><id=2>
-not interested: <len=0001><id=3>
-have: <len=0005><id=4><piece index>
-bitfield: <len=0001+X><id=5><bitfield>
-request: <len=0013><id=6><index><begin><length>
-piece: <len=0009+X><id=7><index><begin><block>
-cancel: <len=0013><id=8><index><begin><length>
- */
