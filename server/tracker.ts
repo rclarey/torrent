@@ -24,8 +24,8 @@ import {
   readBigInt,
   readInt,
   spreadUint8Array,
-  readStringAsBytes,
   writeInt,
+  decodeBinaryData,
 } from "../_bytes.ts";
 
 const CONNECT_MAGIC = 0x41727101980n;
@@ -189,7 +189,7 @@ export class UdpAnnounceRequest extends AnnounceRequest {
   }
 
   /** Send a list of peers to the requesting client */
-  respond(peers: PeerInfo[]): Promise<void> {
+  async respond(peers: PeerInfo[]): Promise<void> {
     try {
       const body = new Uint8Array(20 + 6 * peers.length);
       const [complete, incomplete] = countPeers(peers);
@@ -209,7 +209,7 @@ export class UdpAnnounceRequest extends AnnounceRequest {
         writeInt(peer.port, body, 2, 24 + i * 6);
       }
 
-      return this.conn.send(body, this.addr);
+      await this.conn.send(body, this.addr);
     } catch {
       return this.reject("internal error");
     }
@@ -298,7 +298,7 @@ export class UdpScrapeRequest extends ScrapeRequest {
   }
 
   /** Send aggregate info to the requesting client */
-  respond(list: ScrapeList): Promise<void> {
+  async respond(list: ScrapeList): Promise<void> {
     try {
       const body = new Uint8Array(8 + 12 * list.length);
 
@@ -312,7 +312,7 @@ export class UdpScrapeRequest extends ScrapeRequest {
         i += 1;
       }
 
-      return this.conn.send(body, this.addr);
+      await this.conn.send(body, this.addr);
     } catch {
       return this.reject("internal error");
     }
@@ -324,11 +324,47 @@ export class UdpScrapeRequest extends ScrapeRequest {
   }
 }
 
+interface ParsedParams {
+  params: URLSearchParams;
+  infoHashes: Uint8Array[];
+  peerId: Uint8Array | null;
+  key: Uint8Array | null;
+}
+
+function parseParams(
+  url: string,
+): ParsedParams {
+  let peerId: Uint8Array | null = null;
+  let key: Uint8Array | null = null;
+  const infoHashes: Uint8Array[] = [];
+  const queryStr = url.replace(/[^?]*?/, "").replace(
+    /info_hash=([^&]+)/g,
+    (_, hash) => {
+      infoHashes.push(decodeBinaryData(hash));
+      return "";
+    },
+  ).replace(/peer_id=([^&]+)/g, (_, id) => {
+    peerId = decodeBinaryData(id);
+    return "";
+  }).replace(/key=([^&]+)/g, (_, key) => {
+    key = decodeBinaryData(key);
+    return "";
+  });
+
+  return {
+    params: new URLSearchParams(queryStr),
+    infoHashes,
+    peerId,
+    key,
+  };
+}
+
 function validateAnnounceParams(
-  params: URLSearchParams,
+  { params, peerId, infoHashes, key }: ParsedParams,
 ): AnnounceInfo | null {
   if (
-    !params.has("info_hash") ||
+    peerId === null ||
+    infoHashes.length !== 1 ||
     !params.has("peer_id") ||
     !params.has("ip") ||
     !params.has("port") ||
@@ -343,10 +379,9 @@ function validateAnnounceParams(
   const maybeEvent = params.get("event");
   const maybeNumWant = params.get("num_want");
   const maybeCompact = params.get("compact");
-  const maybeKey = params.get("key");
   return {
-    infoHash: readStringAsBytes(params.get("info_hash")!),
-    peerId: readStringAsBytes(params.get("peer_id")!),
+    peerId,
+    infoHash: infoHashes[0],
     ip: params.get("ip")!,
     port: Number(params.get("port")!),
     uploaded: BigInt(params.get("uploaded")!),
@@ -357,7 +392,7 @@ function validateAnnounceParams(
       : AnnounceEvent.empty,
     numWant: maybeNumWant !== null ? Number(maybeNumWant) : undefined,
     compact: maybeCompact !== null ? maybeCompact as CompactValue : undefined,
-    key: maybeKey !== null ? readStringAsBytes(maybeKey) : undefined,
+    key: key ?? undefined,
   };
 }
 
@@ -406,49 +441,50 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
     HttpAnnounceRequest | HttpScrapeRequest
   > {
     for await (const httpRequest of this.httpServer!) {
-      const match = httpRequest.url.match(/\/(announce|scrape|stats)\??/);
-      if (!match) {
-        // ignore
-        continue;
-      }
-
-      const params = new URLSearchParams(
-        httpRequest.url.slice(httpRequest.url.indexOf("?")),
-      );
-
-      if (match[1] === "announce") {
-        const valid = validateAnnounceParams(params);
-
-        if (valid === null) {
-          sendHttpError(httpRequest, "bad announce parameters");
+      try {
+        const match = httpRequest.url.match(/\/(announce|scrape|stats)\??/);
+        if (!match) {
+          // ignore
           continue;
         }
 
-        if (this.filteredHash(valid.infoHash)) {
-          sendHttpError(
+        const parsed = parseParams(httpRequest.url);
+
+        if (match[1] === "announce") {
+          const valid = validateAnnounceParams(parsed);
+
+          if (valid === null) {
+            sendHttpError(httpRequest, "bad announce parameters");
+            continue;
+          }
+
+          if (this.filteredHash(valid.infoHash)) {
+            sendHttpError(
+              httpRequest,
+              "info_hash is not in the list of supported info hashes",
+            );
+            continue;
+          }
+
+          yield new HttpAnnounceRequest({
             httpRequest,
-            "info_hash is not in the list of supported info hashes",
+            interval: this.interval,
+            ...valid,
+            compact: valid.compact ?? CompactValue.full,
+            numWant: valid.numWant
+              ? Math.min(valid.numWant, DEFAULT_WANT)
+              : DEFAULT_WANT,
+          });
+        } else if (match[1] === "scrape") {
+          yield new HttpScrapeRequest(
+            httpRequest,
+            parsed.infoHashes,
           );
-          continue;
+        } else {
+          // TODO
         }
-
-        yield new HttpAnnounceRequest({
-          httpRequest,
-          interval: this.interval,
-          ...valid,
-          compact: valid.compact ?? CompactValue.full,
-          numWant: valid.numWant
-            ? Math.min(valid.numWant, DEFAULT_WANT)
-            : DEFAULT_WANT,
-        });
-      } else if (match[1] === "scrape") {
-        const strHashes = params.getAll("info_hash") ?? [];
-        yield new HttpScrapeRequest(
-          httpRequest,
-          strHashes.map(readStringAsBytes),
-        );
-      } else {
-        // TODO
+      } catch {
+        // TODO log or something
       }
     }
   }

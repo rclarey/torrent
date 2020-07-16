@@ -86,6 +86,36 @@ export function spreadUint8Array(
   }
 }
 
-export function readStringAsBytes(s: string): Uint8Array {
-  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+export function decodeBinaryData(s: string): Uint8Array {
+  const hash: number[] = [];
+  for (let i = 0; i < s.length;) {
+    if (s[i] === "%") {
+      hash.push(parseInt(s.slice(i + 1, i + 3), 16));
+      i += 3;
+    } else {
+      hash.push(s.charCodeAt(i));
+      i += 1;
+    }
+  }
+
+  return Uint8Array.from(hash);
+}
+
+export function encodeBinaryData(arr: Uint8Array): string {
+  let str = "";
+  for (const byte of arr) {
+    if (
+      (byte > 44 && byte < 58 && byte !== 47) ||
+      (byte > 64 && byte < 91) ||
+      byte === 95 ||
+      (byte > 96 && byte < 123) ||
+      byte === 126
+    ) {
+      str += String.fromCharCode(byte);
+    } else {
+      str += `%${byte.toString(16)}`;
+    }
+  }
+
+  return str;
 }
