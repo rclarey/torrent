@@ -325,6 +325,7 @@ export class UdpScrapeRequest extends ScrapeRequest {
 }
 
 interface ParsedParams {
+  ip: string;
   params: URLSearchParams;
   infoHashes: Uint8Array[];
   peerId: Uint8Array | null;
@@ -332,26 +333,27 @@ interface ParsedParams {
 }
 
 function parseParams(
-  url: string,
+  req: HttpRequest,
 ): ParsedParams {
   let peerId: Uint8Array | null = null;
   let key: Uint8Array | null = null;
   const infoHashes: Uint8Array[] = [];
-  const queryStr = url.replace(/[^?]*?/, "").replace(
-    /info_hash=([^&]+)/g,
+  const queryStr = req.url.replace(/[^?]*\?/, "").replace(
+    /(?:^|&)info_hash=([^&]+)/g,
     (_, hash) => {
       infoHashes.push(decodeBinaryData(hash));
-      return "";
+      return "&";
     },
-  ).replace(/peer_id=([^&]+)/g, (_, id) => {
+  ).replace(/(?:^|&)peer_id=([^&]+)/g, (_, id) => {
     peerId = decodeBinaryData(id);
-    return "";
-  }).replace(/key=([^&]+)/g, (_, key) => {
+    return "&";
+  }).replace(/(?:^|&)key=([^&]+)/g, (_, key) => {
     key = decodeBinaryData(key);
-    return "";
+    return "&";
   });
 
   return {
+    ip: (req.conn.remoteAddr as Deno.NetAddr).hostname,
     params: new URLSearchParams(queryStr),
     infoHashes,
     peerId,
@@ -360,18 +362,15 @@ function parseParams(
 }
 
 function validateAnnounceParams(
-  { params, peerId, infoHashes, key }: ParsedParams,
+  { ip, params, peerId, infoHashes, key }: ParsedParams,
 ): AnnounceInfo | null {
   if (
     peerId === null ||
     infoHashes.length !== 1 ||
-    !params.has("peer_id") ||
-    !params.has("ip") ||
     !params.has("port") ||
     !params.has("uploaded") ||
     !params.has("downloaded") ||
-    !params.has("left") ||
-    !params.has("event")
+    !params.has("left")
   ) {
     return null;
   }
@@ -382,7 +381,7 @@ function validateAnnounceParams(
   return {
     peerId,
     infoHash: infoHashes[0],
-    ip: params.get("ip")!,
+    ip: params.get("ip") ?? ip,
     port: Number(params.get("port")!),
     uploaded: BigInt(params.get("uploaded")!),
     downloaded: BigInt(params.get("downloaded")!),
@@ -448,7 +447,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
           continue;
         }
 
-        const parsed = parseParams(httpRequest.url);
+        const parsed = parseParams(httpRequest);
 
         if (match[1] === "announce") {
           const valid = validateAnnounceParams(parsed);
@@ -471,9 +470,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             interval: this.interval,
             ...valid,
             compact: valid.compact ?? CompactValue.full,
-            numWant: valid.numWant
-              ? Math.min(valid.numWant, DEFAULT_WANT)
-              : DEFAULT_WANT,
+            numWant: valid.numWant ?? DEFAULT_WANT,
           });
         } else if (match[1] === "scrape") {
           yield new HttpScrapeRequest(
@@ -483,8 +480,9 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
         } else {
           // TODO
         }
-      } catch {
+      } catch (e) {
         // TODO log or something
+        console.log(e);
       }
     }
   }
