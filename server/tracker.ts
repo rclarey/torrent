@@ -613,10 +613,16 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
 }
 
 export interface ServeOptions {
-  /** Enable HTTP server. Defaults to true*/
-  http?: boolean;
-  /** Enable UDP server. Defaults to true*/
-  udp?: boolean;
+  /** HTTP server options */
+  http?: {
+    disable?: boolean;
+    port?: number;
+  };
+  /** UDP server options */
+  udp?: {
+    disable?: boolean;
+    port?: number;
+  };
   /** List of allowed info hashes. If undefined then accept all incoming info hashes */
   filterList?: Uint8Array[];
   /** Number of seconds to advise clients wait between regular requests. Defaults to 60 */
@@ -627,11 +633,13 @@ export interface ServeOptions {
 export function serveTracker(opts: ServeOptions = {}): TrackerServer {
   let httpServer: HttpServer | undefined;
   let udpConn: Deno.DatagramConn | undefined;
-  if (opts.http !== false) {
-    httpServer = serveHttp({ port: 80 });
+  if (opts.http?.disable !== true) {
+    httpServer = serveHttp({ port: opts.http?.port ?? 80 });
   }
-  if (opts.udp !== false) {
-    udpConn = Deno.listenDatagram({ port: 6969, transport: "udp" });
+  if (opts.udp?.disable !== true) {
+    udpConn = Deno.listenDatagram(
+      { port: opts.udp?.port ?? 6969, transport: "udp" },
+    );
   }
 
   const server = new TrackerServer({
