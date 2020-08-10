@@ -8,6 +8,7 @@ import {
   ScrapeList,
   UdpTrackerAction,
   UDP_EVENT_MAP,
+  CompactValue,
 } from "./types.ts";
 import {
   equal,
@@ -15,6 +16,7 @@ import {
   writeInt,
   spreadUint8Array,
   readInt,
+  encodeBinaryData,
 } from "./_bytes.ts";
 
 const FETCH_TIMEOUT = 1000 * 10;
@@ -105,7 +107,7 @@ async function scrapeHttp(
   infoHashes: Uint8Array[],
 ): Promise<ScrapeList> {
   if (infoHashes.length > 0) {
-    const strHashes = infoHashes.map((hash) => String.fromCharCode(...hash));
+    const strHashes = infoHashes.map(encodeBinaryData);
     url += `?info_hash=${strHashes.join("&info_hash=")}`;
   }
   const res = await timedFetch(url);
@@ -364,9 +366,9 @@ async function announceHttp(
   info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
   const params = new URLSearchParams({
-    compact: "1",
-    info_hash: String.fromCharCode(...info.infoHash),
-    peer_id: String.fromCharCode(...info.peerId),
+    compact: CompactValue.compact,
+    info_hash: encodeBinaryData(info.infoHash),
+    peer_id: encodeBinaryData(info.peerId),
     ip: info.ip,
     port: info.port.toString(),
     uploaded: info.uploaded.toString(),

@@ -352,9 +352,14 @@ function parseParams(
     return "&";
   });
 
+  let ip = (req.conn.remoteAddr as Deno.NetAddr).hostname;
+  if (req.headers.has("X-Forwarded-For")) {
+    ip = req.headers.get("X-Forwarded-For")!.split(", ")[0];
+  }
+
   return {
-    ip: (req.conn.remoteAddr as Deno.NetAddr).hostname,
     params: new URLSearchParams(queryStr),
+    ip,
     infoHashes,
     peerId,
     key,
