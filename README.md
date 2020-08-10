@@ -1,15 +1,10 @@
-<p align="center">
-<img width="256" alt="bt" src="https://user-images.githubusercontent.com/15111129/83200372-2c6bce00-a111-11ea-88cc-6531d9d3d97d.png">
-</p>
-<hr>
-
 ## A bittorrent client for Deno
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/rclarey/bt/CI)](https://github.com/rclarey/bt/actions)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/rclarey/bt)](https://github.com/rclarey/bt/releases)
 [![Documentation](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/raw.githubusercontent.com/rclarey/bt/master/mod.ts)
 [![MIT License](https://img.shields.io/github/license/rclarey/bt)](https://github.com/rclarey/bt/blob/master/LICENSE)
 
-bt is currently very early in development
+This library is currently in development.
 
 ## Roadmap for initial release
 - [X] HTTP(S) Tracker Protocol
@@ -18,7 +13,7 @@ bt is currently very early in development
 - [X] Compact Peer Lists (Server)
 - [X] UDP Trackers (Server)
 - [X] UDP Trackers (Client)
-- [ ] Peer Protocol
+- [X] Peer Protocol
 - [ ] Torrent level abstraction
   - [ ] Resumption of torrent
   - [ ] Economics for choking
