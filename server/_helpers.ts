@@ -2,7 +2,7 @@
 
 import {
   ServerRequest as HttpRequest,
-} from "https://deno.land/std@0.52.0/http/mod.ts#^";
+} from "https://deno.land/std@0.64.0/http/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { UdpTrackerAction } from "../types.ts";
