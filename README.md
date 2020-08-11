@@ -1,7 +1,7 @@
 <h1 align="center">
   <img width="200px" height="200px" src="https://user-images.githubusercontent.com/15111129/89845573-deca0380-db4c-11ea-839c-43efcfef7d75.png" />
   <br/> A Bittorrent client for Deno
-</div>
+</h1>
 <hr/>
 <p align="center">
   <a href="https://github.com/rclarey/torrent/actions">
