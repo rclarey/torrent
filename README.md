@@ -1,8 +1,22 @@
-## A bittorrent client for Deno
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/rclarey/bt/CI)](https://github.com/rclarey/bt/actions)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/rclarey/bt)](https://github.com/rclarey/bt/releases)
-[![Documentation](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/raw.githubusercontent.com/rclarey/bt/master/mod.ts)
-[![MIT License](https://img.shields.io/github/license/rclarey/bt)](https://github.com/rclarey/bt/blob/master/LICENSE)
+<h1 align="center">
+  <img width="200px" height="200px" src="https://user-images.githubusercontent.com/15111129/89845573-deca0380-db4c-11ea-839c-43efcfef7d75.png" />
+  <br/> A Bittorrent client for Deno
+</div>
+<hr/>
+<p align="center">
+  <a href="https://github.com/rclarey/torrent/actions">
+    <img src="https://img.shields.io/github/workflow/status/rclarey/torrent/CI" alt="GitHub Workflow Status" />
+  </a>
+  <a href="https://github.com/rclarey/torrent/releases">
+    <img src="https://img.shields.io/github/v/release/rclarey/torrent" alt="GitHub release (latest by date)" />
+  </a>
+  <a href="https://doc.deno.land/https/raw.githubusercontent.com/rclarey/torrent/master/mod.ts">
+    <img src="https://doc.deno.land/badge.svg" alt="Documentation" />
+  </a>
+  <a href="https://github.com/rclarey/torrent/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/rclarey/torrent" alt="MIT License" />
+  </a>
+</p>
 
 This library is currently in development.
 
