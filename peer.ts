@@ -1,6 +1,6 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-import { writeInt, spreadUint8Array, readInt } from "./_bytes.ts";
+import { writeInt, spreadUint8Array, readInt, readN } from "./_bytes.ts";
 
 export enum MsgId {
   choke = 0,
@@ -169,21 +169,6 @@ export type PeerMsg =
   | PieceMsg
   | CancelMsg
   | DisconnectMsg;
-
-async function readN(reader: Deno.Reader, n: number): Promise<Uint8Array> {
-  const out = new Uint8Array(n);
-  let nRead = 0;
-  while (nRead < n) {
-    const m = await reader.read(out.subarray(nRead));
-    if (m === null) {
-      throw new Error(
-        `reached EOF but we expected to read ${n - nRead} more bytes`,
-      );
-    }
-    nRead += m;
-  }
-  return out;
-}
 
 function checkValidLength(actual: number, expected: number): void {
   if (actual !== expected) {

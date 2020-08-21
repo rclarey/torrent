@@ -2,6 +2,25 @@
 
 export { equal } from "https://deno.land/std@0.64.0/bytes/mod.ts#^";
 
+export async function readN(
+  reader: Deno.Reader,
+  n: number,
+  arr?: Uint8Array,
+): Promise<Uint8Array> {
+  const out = arr ?? new Uint8Array(n);
+  let nRead = 0;
+  while (nRead < n) {
+    const m = await reader.read(out.subarray(nRead));
+    if (m === null) {
+      throw new Error(
+        `reached EOF but we expected to read ${n - nRead} more bytes`,
+      );
+    }
+    nRead += m;
+  }
+  return out;
+}
+
 export function readInt(
   arr: Uint8Array,
   nBytes: number,

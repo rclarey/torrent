@@ -187,7 +187,7 @@ async function udpFailureServer() {
   conn.close();
 }
 
-Deno.test("announce (HTTP) - full", async () => {
+Deno.test("HTTP Tracker - announce() - full", async () => {
   const s = httpAnnounceFullServer();
 
   const res = await announce("http://127.0.0.1:3000", {
@@ -215,7 +215,7 @@ Deno.test("announce (HTTP) - full", async () => {
   await s;
 });
 
-Deno.test("announce (HTTP) - compact", async () => {
+Deno.test("HTTP Tracker - announce() - compact", async () => {
   const s = httpAnnounceCompactServer();
 
   const res = await announce("http://127.0.0.1:3000", {
@@ -242,7 +242,7 @@ Deno.test("announce (HTTP) - compact", async () => {
   await s;
 });
 
-Deno.test("announce (HTTP) - bad response", async () => {
+Deno.test("HTTP Tracker - announce() - bad response", async () => {
   const s = httpMalformedServer();
 
   const doAnnounce = async () => {
@@ -262,7 +262,7 @@ Deno.test("announce (HTTP) - bad response", async () => {
   await s;
 });
 
-Deno.test("announce (HTTP) - failure reason", async () => {
+Deno.test("HTTP Tracker - announce() - failure reason", async () => {
   const s = httpFailureServer();
 
   const doAnnounce = async () => {
@@ -286,7 +286,58 @@ Deno.test("announce (HTTP) - failure reason", async () => {
   await s;
 });
 
-Deno.test("announce (UDP)", async () => {
+Deno.test("HTTP Tracker - scrape() - ok", async () => {
+  const s = httpScrapeServer();
+
+  const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
+  const res = await scrape("http://127.0.0.1:3000/announce", [infoHash]);
+  assertEquals(res, [{
+    infoHash,
+    complete: 4,
+    downloaded: 5,
+    incomplete: 6,
+  }]);
+  await s;
+});
+
+Deno.test("HTTP Tracker - scrape() - cannot derive URL", async () => {
+  const doScrape = async () => {
+    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
+    await scrape("http://127.0.0.1:3000/notannounce", [infoHash]);
+  };
+
+  await assertThrowsAsync(doScrape, Error, "Cannot derive scrape URL");
+});
+
+Deno.test("HTTP Tracker - scrape() - bad response", async () => {
+  const s = httpMalformedServer();
+
+  const doScrape = async () => {
+    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
+    await scrape("http://127.0.0.1:3000/announce", [infoHash]);
+  };
+
+  await assertThrowsAsync(doScrape, Error, "unknown response format");
+  await s;
+});
+
+Deno.test("HTTP Tracker - scrape() - failure reason", async () => {
+  const s = httpFailureServer();
+
+  const doScrape = async () => {
+    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
+    await scrape("http://127.0.0.1:3000/announce", [infoHash]);
+  };
+
+  await assertThrowsAsync(
+    doScrape,
+    Error,
+    "tracker sent error: something happened",
+  );
+  await s;
+});
+
+Deno.test("UDP Tracker - announce() - ok", async () => {
   const s = udpAnnounceServer();
 
   const res = await announce("udp://127.0.0.1:3000", {
@@ -313,7 +364,7 @@ Deno.test("announce (UDP)", async () => {
   await s;
 });
 
-Deno.test("announce (UDP) - bad response", async () => {
+Deno.test("UDP Tracker - announce() - bad response", async () => {
   const s = udpMalformedServer();
 
   const doAnnounce = async () => {
@@ -333,7 +384,7 @@ Deno.test("announce (UDP) - bad response", async () => {
   await s;
 });
 
-Deno.test("announce (UDP) - failure reason", async () => {
+Deno.test("UDP Tracker - announce() - failure reason", async () => {
   const s = udpFailureServer();
 
   const doAnnounce = async () => {
@@ -357,75 +408,7 @@ Deno.test("announce (UDP) - failure reason", async () => {
   await s;
 });
 
-Deno.test("announce (unknown)", async () => {
-  const doAnnounce = async () => {
-    await announce("ftp://127.0.0.1:3000", {
-      infoHash: new Uint8Array(20).map((_, i) => 97 + i),
-      peerId: new Uint8Array(20).map((_, i) => 65 + i),
-      ip: "192.168.0.30",
-      port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
-      event: AnnounceEvent.empty,
-    });
-  };
-
-  await assertThrowsAsync(doAnnounce, Error, "ftp is not supported");
-});
-
-Deno.test("scrape (HTTP)", async () => {
-  const s = httpScrapeServer();
-
-  const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
-  const res = await scrape("http://127.0.0.1:3000/announce", [infoHash]);
-  assertEquals(res, [{
-    infoHash,
-    complete: 4,
-    downloaded: 5,
-    incomplete: 6,
-  }]);
-  await s;
-});
-
-Deno.test("scrape (HTTP) - cannot derive url", async () => {
-  const doScrape = async () => {
-    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
-    await scrape("http://127.0.0.1:3000/notannounce", [infoHash]);
-  };
-
-  await assertThrowsAsync(doScrape, Error, "Cannot derive scrape URL");
-});
-
-Deno.test("scrape (HTTP) - bad response", async () => {
-  const s = httpMalformedServer();
-
-  const doScrape = async () => {
-    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
-    await scrape("http://127.0.0.1:3000/announce", [infoHash]);
-  };
-
-  await assertThrowsAsync(doScrape, Error, "unknown response format");
-  await s;
-});
-
-Deno.test("scrape (HTTP) - failure reason", async () => {
-  const s = httpFailureServer();
-
-  const doScrape = async () => {
-    const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
-    await scrape("http://127.0.0.1:3000/announce", [infoHash]);
-  };
-
-  await assertThrowsAsync(
-    doScrape,
-    Error,
-    "tracker sent error: something happened",
-  );
-  await s;
-});
-
-Deno.test("scrape (UDP)", async () => {
+Deno.test("UDP Tracker - scrape() - ok", async () => {
   const s = udpScrapeServer();
 
   const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
@@ -439,7 +422,7 @@ Deno.test("scrape (UDP)", async () => {
   await s;
 });
 
-Deno.test("scrape (UDP) - bad response", async () => {
+Deno.test("UDP Tracker - scrape() - bad response", async () => {
   const s = udpMalformedServer();
 
   const doScrape = async () => {
@@ -451,7 +434,7 @@ Deno.test("scrape (UDP) - bad response", async () => {
   await s;
 });
 
-Deno.test("scrape (UDP) - failure reason", async () => {
+Deno.test("UDP Tracker - scrape() - failure reason", async () => {
   const s = udpFailureServer();
 
   const doScrape = async () => {
@@ -467,11 +450,28 @@ Deno.test("scrape (UDP) - failure reason", async () => {
   await s;
 });
 
-Deno.test("scrape (unknown)", async () => {
+Deno.test("Unknown Tracker - scrape()", async () => {
   const doScrape = async () => {
     const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
     await scrape("ftp://127.0.0.1:3000", [infoHash]);
   };
 
   await assertThrowsAsync(doScrape, Error, "ftp is not supported");
+});
+
+Deno.test("Unknown Tracker - announce()", async () => {
+  const doAnnounce = async () => {
+    await announce("ftp://127.0.0.1:3000", {
+      infoHash: new Uint8Array(20).map((_, i) => 97 + i),
+      peerId: new Uint8Array(20).map((_, i) => 65 + i),
+      ip: "192.168.0.30",
+      port: 6883,
+      uploaded: 1n,
+      downloaded: 2n,
+      left: 3n,
+      event: AnnounceEvent.empty,
+    });
+  };
+
+  await assertThrowsAsync(doAnnounce, Error, "ftp is not supported");
 });
