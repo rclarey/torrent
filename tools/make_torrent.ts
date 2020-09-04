@@ -1,6 +1,6 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-import { createHash } from "https://deno.land/std@0.67.0/hash/mod.ts";
+import { createHash } from "https://deno.land/std@0.67.0/hash/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";

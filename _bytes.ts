@@ -1,6 +1,6 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-export { equal } from "https://deno.land/std@0.64.0/bytes/mod.ts#^";
+export { equal } from "https://deno.land/std@0.67.0/bytes/mod.ts#^";
 
 export async function readN(
   reader: Deno.Reader,

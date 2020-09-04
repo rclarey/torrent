@@ -2,7 +2,7 @@ import { createFileStorage } from "./storage.ts";
 import {
   assertEquals,
   assertThrowsAsync,
-} from "https://deno.land/std@0.64.0/testing/asserts.ts#^";
+} from "https://deno.land/std@0.67.0/testing/asserts.ts#^";
 
 const baseSingle = {
   pieceLength: 1024,
