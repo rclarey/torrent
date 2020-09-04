@@ -1,9 +1,11 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
 export interface BencodeableList extends Array<Bencodeable> {}
-export interface BencodeableDict extends Record<string, Bencodeable> {}
+export interface BencodeableDict
+  extends Record<string, Bencodeable | undefined> {}
 /** Data that is able to be bencoded */
 export type Bencodeable =
+  | string
   | Uint8Array
   | number
   | BencodeableList
@@ -20,7 +22,13 @@ const te = new TextEncoder();
 const td = new TextDecoder();
 
 function encode(byteArray: number[], data: Bencodeable): void {
-  if (data instanceof Uint8Array) {
+  if (typeof data === "string") {
+    byteArray.push(
+      ...te.encode(data.length.toString()),
+      COLON,
+      ...te.encode(data),
+    );
+  } else if (data instanceof Uint8Array) {
     byteArray.push(...te.encode(data.length.toString()), COLON, ...data);
   } else if (Array.isArray(data)) {
     byteArray.push(LIST);
@@ -38,8 +46,10 @@ function encode(byteArray: number[], data: Bencodeable): void {
   } else if (data instanceof Object) {
     byteArray.push(DICTIONARY);
     for (const [key, val] of Object.entries(data)) {
-      encode(byteArray, te.encode(key));
-      encode(byteArray, val);
+      if (val !== undefined) {
+        encode(byteArray, te.encode(key));
+        encode(byteArray, val);
+      }
     }
     byteArray.push(END);
   } else {
@@ -143,4 +153,41 @@ function decode(data: Uint8Array, start: number): [number, Bencodeable] {
 /** Decode `data` from a byte array into native data types */
 export function bdecode(data: Uint8Array): Bencodeable {
   return decode(data, 0)[1];
+}
+
+/**
+ * special case of `bdecode` when we are expecting a top level key `files`
+ * whose value is a map of infohashes to file info
+ */
+export function bdecodeBytestringMap(
+  data: Uint8Array,
+): Map<Uint8Array, Bencodeable> | { failureReason: string } {
+  if (data[0] !== DICTIONARY) {
+    throw new Error("Failed to bdecode. Expecting top level dictionary");
+  }
+
+  const map = new Map<Uint8Array, Bencodeable>();
+  let n = 1;
+  let keyByteString: Uint8Array;
+  let key: string;
+  [n, keyByteString] = decodeString(data, n);
+  key = td.decode(keyByteString);
+  if (key === "failure reason") {
+    const [, value] = decodeString(data, n);
+    return { failureReason: td.decode(value) };
+  } else if (key !== "files" || data[n] !== DICTIONARY) {
+    throw new Error(
+      "Failed to bdecode. Expected dictionary with the key `files`",
+    );
+  }
+
+  n += 1;
+  let value: Bencodeable;
+  while (data[n] !== END) {
+    [n, keyByteString] = decodeString(data, n);
+    [n, value] = decode(data, n);
+    map.set(keyByteString, value);
+  }
+
+  return map;
 }

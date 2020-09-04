@@ -138,3 +138,12 @@ export function encodeBinaryData(arr: Uint8Array): string {
 
   return str;
 }
+
+export function partition(arr: Uint8Array, n: number): Uint8Array[] {
+  const slices: Uint8Array[] = [];
+  for (let i = 0; i < arr.length; i += n) {
+    slices.push(arr.subarray(i, i + n));
+  }
+
+  return slices;
+}

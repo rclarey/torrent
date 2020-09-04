@@ -1,3 +1,6 @@
+// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+
+import { InfoDict, MultiFileFields } from "./metainfo.ts";
 import { readN } from "./_bytes.ts";
 
 export interface Storage {
@@ -5,46 +8,13 @@ export interface Storage {
   set(offset: number, bytes: Uint8Array): Promise<void>;
 }
 
-interface SingleInfoDict {
-  /** the filename */
-  name: string;
-  /** length of the file in bytes */
-  length: number;
-  /** number of bytes in each piece */
-  pieceLength: number;
-  /* the 20-byte SHA1 hash values for each piece */
-  pieces: Uint8Array[];
-}
-
-interface MultiFileInfo {
-  /** length of the file in bytes */
-  length: number;
-  /** array representing the path and filename */
-  path: string[];
-}
-
-interface MultiInfoDict {
-  /** the name of the directory in which to store all the files */
-  name: string;
-  /** info for each file in the torrent */
-  files: MultiFileInfo[];
-  /** number of bytes in each piece */
-  pieceLength: number;
-  /* the 20-byte SHA1 hash values for each piece */
-  pieces: Uint8Array[];
-}
-
-type InfoDict = SingleInfoDict | MultiInfoDict;
-
-export type StorageFactory = (info: InfoDict) => Storage | Promise<Storage>;
-
 const OPEN_OPTIONS = {
   read: true,
   write: true,
   create: true,
 };
 
-export class FileStorage implements Storage {
+class FileStorage implements Storage {
   constructor(public path: string) {}
 
   async get(offset: number, length: number): Promise<Uint8Array> {
@@ -69,9 +39,8 @@ export class FileStorage implements Storage {
   }
 }
 
-export class MultiFileStorage implements Storage {
-  constructor(public dir: string, public files: MultiFileInfo[]) {
-  }
+class MultiFileStorage implements Storage {
+  constructor(public dir: string, public files: MultiFileFields[]) {}
 
   async ensurePaths(): Promise<void> {
     await Deno.mkdir(this.dir, { recursive: true });
@@ -147,4 +116,18 @@ export class MultiFileStorage implements Storage {
       (file, arr) => Deno.writeAll(file, arr),
     );
   }
+}
+
+export async function createFileStorage(
+  info: InfoDict,
+  dirPath: string,
+): Promise<Storage> {
+  const topLevelPath = `${dirPath}/${info.name}`;
+  if ("length" in info) {
+    return new FileStorage(topLevelPath);
+  }
+
+  const storage = new MultiFileStorage(topLevelPath, info.files);
+  await storage.ensurePaths();
+  return storage;
 }

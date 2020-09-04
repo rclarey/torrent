@@ -66,7 +66,7 @@ export interface AnnounceInfo {
   key?: Uint8Array;
 }
 
-export type ScrapeList = {
+export type ScrapeData = {
   /** Number of peers who have the whole file */
   complete: number;
   /** Number of completed downloads */
@@ -75,7 +75,7 @@ export type ScrapeList = {
   incomplete: number;
   /** Info hash for the file */
   infoHash: Uint8Array;
-}[];
+};
 
 export const enum PeerState {
   /** The peer has the whole file */

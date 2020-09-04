@@ -14,7 +14,7 @@ import {
   CompactValue,
   PeerInfo,
   PeerState,
-  ScrapeList,
+  ScrapeData,
   UDP_EVENT_MAP,
   UdpTrackerAction,
 } from "../types.ts";
@@ -231,7 +231,7 @@ export abstract class ScrapeRequest {
   /** Requested info hashes */
   infoHashes!: Uint8Array[];
   /** Send aggregate info to the requesting client */
-  abstract respond(list: ScrapeList): Promise<void>;
+  abstract respond(list: ScrapeData[]): Promise<void>;
   /** Send a failure response to the requesting client */
   abstract reject(reason: string): Promise<void>;
 }
@@ -249,7 +249,7 @@ export class HttpScrapeRequest extends ScrapeRequest {
   }
 
   /** Send aggregate info to the requesting client */
-  respond(list: ScrapeList): Promise<void> {
+  respond(list: ScrapeData[]): Promise<void> {
     try {
       const files = new Map<Uint8Array, ScrapeInfo>(
         list.map((
@@ -298,7 +298,7 @@ export class UdpScrapeRequest extends ScrapeRequest {
   }
 
   /** Send aggregate info to the requesting client */
-  async respond(list: ScrapeList): Promise<void> {
+  async respond(list: ScrapeData[]): Promise<void> {
     try {
       const body = new Uint8Array(8 + 12 * list.length);
 

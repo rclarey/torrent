@@ -10,7 +10,7 @@ import {
   AnnounceEvent,
   PeerInfo as BasePeerInfo,
   PeerState,
-  ScrapeList,
+  ScrapeData,
 } from "../types.ts";
 
 const CLEANUP_INTERVAL = 1000 * 60 * 15;
@@ -152,7 +152,7 @@ function handleScrape(
     hashes = [...infoMap.keys()];
   }
 
-  const list: ScrapeList = [];
+  const list: ScrapeData[] = [];
   for (const hash of hashes) {
     const info = infoMap.get(hash);
     if (!info) {

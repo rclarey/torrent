@@ -1,11 +1,11 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-import { bdecode } from "./bencode.ts";
+import { bdecode, bdecodeBytestringMap, Bencodeable } from "./bencode.ts";
 import {
   AnnounceEvent,
   AnnounceInfo,
   Peer,
-  ScrapeList,
+  ScrapeData,
   UdpTrackerAction,
   UDP_EVENT_MAP,
   CompactValue,
@@ -18,6 +18,7 @@ import {
   readInt,
   encodeBinaryData,
 } from "./_bytes.ts";
+import { obj, num, arr, inst, or, undef } from "./valid.ts";
 
 const FETCH_TIMEOUT = 1000 * 10;
 const UDP_CONNECT_MAGIC = 0x41727101980n;
@@ -60,58 +61,42 @@ function timedFetch(
   );
 }
 
-function validateHttpScrape(data: Uint8Array): ScrapeList {
-  const td = new TextDecoder();
-  let decoded: any;
+const validateScrapeData = obj({
+  complete: num,
+  downloaded: num,
+  incomplete: num,
+});
+
+function parseHttpScrape(data: Uint8Array): ScrapeData[] {
+  let decoded: Map<Uint8Array, Bencodeable> | { failureReason: string };
   try {
-    decoded = bdecode(data);
+    decoded = bdecodeBytestringMap(data);
   } catch {
     throw new Error("unknown response format");
   }
-  const {
-    files,
-    ["failure reason"]: reason,
-  } = decoded;
 
-  if (reason) {
-    throw new Error(`tracker sent error: ${td.decode(reason)}`);
+  if ("failureReason" in decoded) {
+    throw new Error(`tracker sent error: ${decoded.failureReason}`);
   }
 
-  if (typeof files === "object") {
-    let list: ScrapeList = [];
-    for (const [key, val] of Object.entries(files)) {
-      const { complete, incomplete, downloaded } = val as any;
-      if (
-        typeof complete === "number" && typeof incomplete === "number" &&
-        typeof downloaded === "number"
-      ) {
-        list.push({
-          complete,
-          downloaded,
-          incomplete,
-          infoHash: Uint8Array.from(key, (c) => c.charCodeAt(0)),
-        });
-      } else {
-        throw new Error("unknown response format");
-      }
+  return [...decoded.entries()].map(([infoHash, data]) => {
+    if (!validateScrapeData(data)) {
+      throw new Error("unknown response format");
     }
-
-    return list;
-  }
-
-  throw new Error("unknown response format");
+    return { ...data, infoHash };
+  });
 }
 
 async function scrapeHttp(
   url: string,
   infoHashes: Uint8Array[],
-): Promise<ScrapeList> {
+): Promise<ScrapeData[]> {
   if (infoHashes.length > 0) {
     const strHashes = infoHashes.map(encodeBinaryData);
     url += `?info_hash=${strHashes.join("&info_hash=")}`;
   }
   const res = await timedFetch(url);
-  return validateHttpScrape(new Uint8Array(await res.arrayBuffer()));
+  return parseHttpScrape(new Uint8Array(await res.arrayBuffer()));
 }
 
 function deriveUdpError(action: UdpTrackerAction, arr: Uint8Array): Error {
@@ -216,7 +201,7 @@ export async function withConnect<T>(
 async function scrapeUdp(
   url: string,
   infoHashes: Uint8Array[],
-): Promise<ScrapeList> {
+): Promise<ScrapeData[]> {
   const body = new Uint8Array(16 + 20 * infoHashes.length);
   writeInt(UdpTrackerAction.scrape, body, 4, 8);
   for (const [i, hash] of infoHashes.entries()) {
@@ -237,7 +222,7 @@ async function scrapeUdp(
       }
 
       const nHashes = ((result.length - UDP_SCRAPE_LENGTH) / 12) | 0;
-      const list: ScrapeList = [];
+      const list: ScrapeData[] = [];
       for (const [i, infoHash] of infoHashes.slice(0, nHashes).entries()) {
         list.push({
           complete: readInt(result, 4, 8 + 12 * i),
@@ -260,7 +245,7 @@ async function scrapeUdp(
 export function scrape(
   url: string,
   infoHashes: Uint8Array[],
-): Promise<ScrapeList> {
+): Promise<ScrapeData[]> {
   const protocol = url.slice(0, url.indexOf("://"));
   switch (protocol) {
     case "http":
@@ -285,18 +270,15 @@ export function scrape(
   }
 }
 
-function readCompactPeers(peers: Uint8Array): Peer[] | null {
-  if (peers.length % 6 === 0) {
-    const decodedPeers: Peer[] = [];
-    for (let i = 0; i < peers.length; i += 6) {
-      decodedPeers.push({
-        ip: peers.subarray(i, i + 4).join("."),
-        port: (peers[i + 4] << 8) + peers[i + 5],
-      });
-    }
-    return decodedPeers;
+function readCompactPeers(peers: Uint8Array): Peer[] {
+  const decodedPeers: Peer[] = [];
+  for (let i = 0; i < peers.length - 5; i += 6) {
+    decodedPeers.push({
+      ip: peers.subarray(i, i + 4).join("."),
+      port: (peers[i + 4] << 8) + peers[i + 5],
+    });
   }
-  return null;
+  return decodedPeers;
 }
 
 export interface AnnounceResponse {
@@ -310,7 +292,21 @@ export interface AnnounceResponse {
   peers: Peer[];
 }
 
-function validateHttpAnnounce(data: Uint8Array): AnnounceResponse {
+const validateHttpAnnounce = obj({
+  complete: num,
+  incomplete: num,
+  interval: num,
+  peers: or(
+    inst(Uint8Array),
+    arr(obj({
+      ip: inst(Uint8Array),
+      port: num,
+      "peer id": or(undef, inst(Uint8Array)),
+    })),
+  ),
+});
+
+function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
   const td = new TextDecoder();
   let decoded: any;
   try {
@@ -318,49 +314,37 @@ function validateHttpAnnounce(data: Uint8Array): AnnounceResponse {
   } catch {
     throw new Error("unknown response format");
   }
-  const {
-    complete,
-    incomplete,
-    interval,
-    peers,
-    ["failure reason"]: reason,
-  } = decoded;
 
   if (
-    typeof complete === "number" && typeof incomplete === "number" &&
-    typeof interval === "number"
+    "failure reason" in decoded &&
+    decoded["failure reason"] instanceof Uint8Array
   ) {
-    let compactPeers = peers instanceof Uint8Array
-      ? readCompactPeers(peers)
-      : null;
-    if (compactPeers) {
-      return {
-        complete,
-        incomplete,
-        interval,
-        peers: compactPeers,
-      };
-    } else if (Array.isArray(peers)) {
-      return {
-        complete,
-        incomplete,
-        interval,
-        peers: peers.map((p) => ({
-          port: p.port,
-          id: p["peer id"],
-          ip: td.decode(p.ip),
-        })),
-      };
-    }
-    // fallthrough
+    throw new Error(
+      `tracker sent error: ${td.decode(decoded["failure reason"])}`,
+    );
   }
 
-  if (reason instanceof Uint8Array) {
-    throw new Error(`tracker sent error: ${td.decode(reason)}`);
+  if (!validateHttpAnnounce(decoded)) {
+    throw new Error("unknown response format");
   }
 
-  throw new Error("unknown response format");
+  if (decoded.peers instanceof Uint8Array) {
+    return {
+      ...decoded,
+      peers: readCompactPeers(decoded.peers),
+    };
+  }
+
+  return {
+    ...decoded,
+    peers: decoded.peers.map(({ ip, port, ["peer id"]: id }) => ({
+      ip: td.decode(ip),
+      port,
+      id,
+    })),
+  };
 }
+
 async function announceHttp(
   url: string,
   info: AnnounceInfo,
@@ -379,7 +363,7 @@ async function announceHttp(
   });
 
   const res = await timedFetch(`${url}?${params}`);
-  return validateHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
+  return parseHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
 async function announceUdp(
