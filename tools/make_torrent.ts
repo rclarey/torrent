@@ -96,6 +96,14 @@ export async function makeTorrent(
   tracker: string,
   comment?: string,
 ): Promise<Uint8Array> {
+  const common = {
+    announce: tracker,
+    comment,
+    "created by":
+      "https://github.com/rclarey/torrent/blob/master/tools/make_torrent.ts",
+    "creation date": Math.floor(Date.now() / 1000),
+    encoding: "UTF-8",
+  };
   const parts = path!.split("/");
   const info = await Deno.stat(path);
 
@@ -104,10 +112,7 @@ export async function makeTorrent(
     const [pieces, pieceLength] = await hashMultiFilePieces(path, files, size);
 
     return bencode({
-      announce: tracker,
-      comment,
-      "creation date": Math.floor(Date.now() / 1000),
-      encoding: "UTF-8",
+      ...common,
       info: {
         files: files as { path: string[]; length: number }[],
         name: parts[parts.length - 1],
@@ -138,10 +143,7 @@ export async function makeTorrent(
   fd.close();
 
   return bencode({
-    announce: tracker,
-    comment,
-    "creation date": Math.floor(Date.now() / 1000),
-    encoding: "UTF-8",
+    ...common,
     info: {
       length: info.size,
       name: parts[parts.length - 1],
