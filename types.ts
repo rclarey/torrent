@@ -22,7 +22,7 @@ export const UDP_EVENT_MAP = [
   AnnounceEvent.stopped,
 ];
 
-export const enum CompactValue {
+export enum CompactValue {
   /** Compact peer list is accepted */
   compact = "1",
   /** Compact peer list is not accepted */
@@ -77,7 +77,7 @@ export type ScrapeData = {
   infoHash: Uint8Array;
 };
 
-export const enum PeerState {
+export enum PeerState {
   /** The peer has the whole file */
   seeder = "seeder",
   /** The peer does not have the whole file */
@@ -91,7 +91,7 @@ export interface PeerInfo extends Peer {
   state: PeerState;
 }
 
-export const enum UdpTrackerAction {
+export enum UdpTrackerAction {
   connect = 0,
   announce = 1,
   scrape = 2,
