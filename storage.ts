@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
 import type { InfoDict, MultiFileFields } from "./metainfo.ts";
 import { readN } from "./_bytes.ts";
@@ -29,7 +29,9 @@ class FileStorage implements Storage {
     } catch {
       try {
         f?.close();
-      } catch {}
+      } catch {
+        // do nothing
+      }
       return null;
     }
   }
@@ -45,7 +47,9 @@ class FileStorage implements Storage {
     } catch {
       try {
         f?.close();
-      } catch {}
+      } catch {
+        // do nothing
+      }
       return false;
     }
   }
@@ -58,10 +62,9 @@ class MultiFileStorage implements Storage {
     await Deno.mkdir(this.dir, { recursive: true });
     for (const { path } of this.files) {
       if (path.length > 1) {
-        await Deno.mkdir(
-          [this.dir, ...path.slice(0, -1)].join("/"),
-          { recursive: true },
-        );
+        await Deno.mkdir([this.dir, ...path.slice(0, -1)].join("/"), {
+          recursive: true,
+        });
       }
     }
   }
@@ -83,10 +86,7 @@ class MultiFileStorage implements Storage {
           const nBytes = Math.min(fileEnd - offset - i, length - i);
           const fileOffset = Math.max(offset - fileStart, 0);
 
-          f = await Deno.open(
-            [this.dir, ...file.path].join("/"),
-            OPEN_OPTIONS,
-          );
+          f = await Deno.open([this.dir, ...file.path].join("/"), OPEN_OPTIONS);
           await f.seek(fileOffset, Deno.SeekMode.Start);
           await action(f, bytes.subarray(i, i + nBytes));
           f.close();
@@ -102,7 +102,9 @@ class MultiFileStorage implements Storage {
     } catch {
       try {
         f?.close();
-      } catch {}
+      } catch {
+        // do nothing
+      }
     }
 
     return false;
@@ -110,13 +112,9 @@ class MultiFileStorage implements Storage {
 
   async get(offset: number, length: number): Promise<Uint8Array | null> {
     const bytes = new Uint8Array(length);
-    const success = await this.findAndDo(
-      offset,
-      bytes,
-      async (file, arr) => {
-        await readN(file, arr.length, arr);
-      },
-    );
+    const success = await this.findAndDo(offset, bytes, async (file, arr) => {
+      await readN(file, arr.length, arr);
+    });
     return success ? bytes : null;
   }
 

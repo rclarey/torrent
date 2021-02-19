@@ -1,7 +1,7 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
 import { bdecode } from "./bencode.ts";
-import { arr, obj, or, num, inst, undef } from "./valid.ts";
+import { arr, inst, num, obj, or, undef } from "./valid.ts";
 import { partition } from "./_bytes.ts";
 
 const enum PrivateValue {
@@ -68,10 +68,12 @@ const validateMultiFileInfo = obj({
   pieces: inst(Uint8Array),
   private: or(undef, num),
   name: inst(Uint8Array),
-  files: arr(obj({
-    length: num,
-    path: arr(inst(Uint8Array)),
-  })),
+  files: arr(
+    obj({
+      length: num,
+      path: arr(inst(Uint8Array)),
+    }),
+  ),
 });
 
 const validateMetaInfo = obj({

@@ -1,11 +1,11 @@
 import {
   assertEquals,
   assertNotEquals,
-} from "https://deno.land/std@0.67.0/testing/asserts.ts#^";
+} from "https://deno.land/std@0.87.0/testing/asserts.ts#^";
 import {
+  MultiFileInfoDict,
   parseMetaInfo,
   SingleFileInfoDict,
-  MultiFileInfoDict,
 } from "./metainfo.ts";
 
 Deno.test("MetaInfo - parseMetaInfo() - single file", async () => {

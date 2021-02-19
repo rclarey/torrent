@@ -1,6 +1,8 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
+// deno-lint-ignore no-empty-interface
 export interface BencodeableList extends Array<Bencodeable> {}
+// deno-lint-ignore no-empty-interface
 export interface BencodeableDict
   extends Record<string, Bencodeable | undefined> {}
 /** Data that is able to be bencoded */
@@ -70,7 +72,7 @@ function decodeInt(data: Uint8Array, start: number): [number, number] {
   }
 
   let n = start + 1;
-  let digits: number[] = [];
+  const digits: number[] = [];
   while (data[n] !== END) {
     digits.push(data[n]);
     n += 1;
@@ -169,9 +171,8 @@ export function bdecodeBytestringMap(
   const map = new Map<Uint8Array, Bencodeable>();
   let n = 1;
   let keyByteString: Uint8Array;
-  let key: string;
   [n, keyByteString] = decodeString(data, n);
-  key = td.decode(keyByteString);
+  const key = td.decode(keyByteString);
   if (key === "failure reason") {
     const [, value] = decodeString(data, n);
     return { failureReason: td.decode(value) };

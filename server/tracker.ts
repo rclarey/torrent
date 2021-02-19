@@ -4,9 +4,9 @@ import {
   serve as serveHttp,
   Server as HttpServer,
   ServerRequest as HttpRequest,
-} from "https://deno.land/std@0.67.0/http/mod.ts#^";
-import { MuxAsyncIterator } from "https://deno.land/std@0.67.0/async/mux_async_iterator.ts#^";
-import { equal } from "https://deno.land/std@0.67.0/bytes/mod.ts#^";
+} from "https://deno.land/std@0.87.0/http/mod.ts#^";
+import { MuxAsyncIterator } from "https://deno.land/std@0.87.0/async/mux_async_iterator.ts#^";
+import { equal } from "https://deno.land/std@0.87.0/bytes/mod.ts#^";
 
 import {
   AnnounceEvent,
@@ -21,11 +21,11 @@ import {
 import { bencode } from "../bencode.ts";
 import { sendHttpError, sendUdpError } from "./_helpers.ts";
 import {
+  decodeBinaryData,
   readBigInt,
   readInt,
   spreadUint8Array,
   writeInt,
-  decodeBinaryData,
 } from "../_bytes.ts";
 
 const CONNECT_MAGIC = 0x41727101980n;
@@ -347,8 +347,8 @@ function parseParams(
   ).replace(/(?:^|&)peer_id=([^&]+)/g, (_, id) => {
     peerId = decodeBinaryData(id);
     return "&";
-  }).replace(/(?:^|&)key=([^&]+)/g, (_, key) => {
-    key = decodeBinaryData(key);
+  }).replace(/(?:^|&)key=([^&]+)/g, (_, keyData) => {
+    key = decodeBinaryData(keyData);
     return "&";
   });
 
@@ -597,7 +597,9 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             conn: this.udpConn!,
           });
         }
-      } catch {}
+      } catch {
+        // do nothing
+      }
     }
   }
 

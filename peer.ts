@@ -1,6 +1,6 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
-import { writeInt, spreadUint8Array, readInt, readN } from "./_bytes.ts";
+import { readInt, readN, spreadUint8Array, writeInt } from "./_bytes.ts";
 
 export enum MsgId {
   choke = 0,
@@ -188,57 +188,43 @@ export async function* iteratePeerMsgs(
       }
 
       const id = (await readN(conn, 1))[0];
-      switch (id) {
-        case MsgId.choke:
-        case MsgId.unchoke:
-        case MsgId.interested:
-        case MsgId.uninterested: {
-          checkValidLength(length, 1);
-          yield { id, conn };
-        }
 
-        case MsgId.have: {
-          checkValidLength(length, 5);
-          const index = readInt(await readN(conn, 4), 4, 0);
-          yield { id, conn, index };
+      // choke, unchoke, interested, uninterested
+      if (id <= MsgId.uninterested) {
+        checkValidLength(length, 1);
+        yield { id, conn };
+      } else if (id === MsgId.have) {
+        checkValidLength(length, 5);
+        const index = readInt(await readN(conn, 4), 4, 0);
+        yield { id, conn, index };
+      } else if (MsgId.bitfield) {
+        const bitfield = await readN(conn, length - 1);
+        yield { id, conn, bitfield };
+      } else if (id === MsgId.request || id === MsgId.cancel) {
+        checkValidLength(length, 13);
+        const arr = await readN(conn, 12);
+        yield {
+          id,
+          conn,
+          index: readInt(arr, 4, 0),
+          offset: readInt(arr, 4, 4),
+          length: readInt(arr, 4, 8),
+        };
+      } else if (id === MsgId.piece) {
+        if (length < 9) {
+          throw new Error("malformed message");
         }
-
-        case MsgId.bitfield: {
-          const bitfield = await readN(conn, length - 1);
-          yield { id, conn, bitfield };
-        }
-
-        case MsgId.request:
-        case MsgId.cancel: {
-          checkValidLength(length, 13);
-          const arr = await readN(conn, 12);
-          yield {
-            id,
-            conn,
-            index: readInt(arr, 4, 0),
-            offset: readInt(arr, 4, 4),
-            length: readInt(arr, 4, 8),
-          };
-        }
-
-        case MsgId.piece: {
-          if (length < 9) {
-            throw new Error("malformed message");
-          }
-          const arr = await readN(conn, 8);
-          yield {
-            id,
-            conn,
-            index: readInt(arr, 4, 0),
-            offset: readInt(arr, 4, 4),
-            block: await readN(conn, length - 9),
-          };
-        }
-
-        default: {
-          // unrecognized message -> read the whole message but ignore it
-          await readN(conn, length - 1);
-        }
+        const arr = await readN(conn, 8);
+        yield {
+          id,
+          conn,
+          index: readInt(arr, 4, 0),
+          offset: readInt(arr, 4, 4),
+          block: await readN(conn, length - 9),
+        };
+      } else {
+        // unrecognized message -> read the whole message but ignore it
+        await readN(conn, length - 1);
       }
     }
   } catch (e) {

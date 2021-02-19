@@ -1,6 +1,6 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
-import { createHash } from "https://deno.land/std@0.67.0/hash/mod.ts#^";
+import { createHash } from "https://deno.land/std@0.87.0/hash/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";
@@ -154,9 +154,8 @@ export async function makeTorrent(
   });
 }
 
-if (import.meta.main) {
-  function help() {
-    console.log(`
+function help() {
+  console.log(`
 make_torrent
 make a .torrent file for a given file or directory of files
 
@@ -167,8 +166,9 @@ OPTIONS:
 \t--help\t\tPrints this message
 \t-c <comment>\tAdd the provided comment to the .torrent file
 `);
-  }
+}
 
+if (import.meta.main) {
   const nArgs = Deno.args.length;
 
   if (nArgs !== 3 && nArgs !== 5) {

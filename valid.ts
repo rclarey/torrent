@@ -1,4 +1,6 @@
-export type Validator<T> = (x: any) => x is T;
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+
+export type Validator<T> = (x: unknown) => x is T;
 
 type ExtractParam<U> = U extends Validator<infer T> ? T : never;
 
@@ -10,7 +12,7 @@ export function obj<T extends Record<string, Validator<unknown>>>(
       return false;
     }
     for (const key of Object.keys(shape)) {
-      if (!shape[key](x[key])) {
+      if (!shape[key](x[key as keyof typeof x])) {
         return false;
       }
     }
@@ -28,7 +30,7 @@ export function arr<T>(arrType: Validator<T>): Validator<T[]> {
   };
 }
 
-type Constructor<T> = new (...args: any[]) => T;
+type Constructor<T> = new (...args: unknown[]) => T;
 
 export function inst<T>(ctor: Constructor<T>): Validator<T> {
   return (x): x is T => {

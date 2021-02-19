@@ -1,24 +1,24 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
 import { bdecode, bdecodeBytestringMap, Bencodeable } from "./bencode.ts";
 import {
   AnnounceEvent,
   AnnounceInfo,
+  CompactValue,
   Peer,
   ScrapeData,
-  UdpTrackerAction,
   UDP_EVENT_MAP,
-  CompactValue,
+  UdpTrackerAction,
 } from "./types.ts";
 import {
-  equal,
+  encodeBinaryData,
+  equals,
+  readInt,
+  spreadUint8Array,
   writeBigInt,
   writeInt,
-  spreadUint8Array,
-  readInt,
-  encodeBinaryData,
 } from "./_bytes.ts";
-import { obj, num, arr, inst, or, undef } from "./valid.ts";
+import { arr, inst, num, obj, or, undef } from "./valid.ts";
 
 const FETCH_TIMEOUT = 1000 * 10;
 const UDP_CONNECT_MAGIC = 0x41727101980n;
@@ -149,7 +149,7 @@ export async function withConnect<T>(
       const action = readInt(res, 4, 0) as UdpTrackerAction;
       const resTransId = res.subarray(4, 8);
 
-      if (!equal(transactionId, resTransId)) {
+      if (!equals(transactionId, resTransId)) {
         // not our transaction id -> ignore
         continue;
       }
@@ -181,7 +181,7 @@ export async function withConnect<T>(
       }
 
       const resTransId = res.subarray(4, 8);
-      if (!equal(transactionId, resTransId)) {
+      if (!equals(transactionId, resTransId)) {
         // not our transaction id -> ignore
         continue;
       }
@@ -198,7 +198,7 @@ export async function withConnect<T>(
   throw new Error("could not connect to tracker");
 }
 
-async function scrapeUdp(
+function scrapeUdp(
   url: string,
   infoHashes: Uint8Array[],
 ): Promise<ScrapeData[]> {
@@ -308,7 +308,7 @@ const validateHttpAnnounce = obj({
 
 function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
   const td = new TextDecoder();
-  let decoded: any;
+  let decoded: Bencodeable;
   try {
     decoded = bdecode(data);
   } catch {
@@ -316,6 +316,7 @@ function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
   }
 
   if (
+    typeof decoded === "object" &&
     "failure reason" in decoded &&
     decoded["failure reason"] instanceof Uint8Array
   ) {
@@ -366,7 +367,7 @@ async function announceHttp(
   return parseHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
-async function announceUdp(
+function announceUdp(
   url: string,
   info: AnnounceInfo,
 ): Promise<AnnounceResponse> {

@@ -2,7 +2,7 @@
 
 import {
   ServerRequest as HttpRequest,
-} from "https://deno.land/std@0.67.0/http/mod.ts#^";
+} from "https://deno.land/std@0.87.0/http/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { UdpTrackerAction } from "../types.ts";
@@ -32,5 +32,7 @@ export async function sendUdpError(
     spreadUint8Array(transactionId, body, 4);
     spreadUint8Array(message, body, 8);
     await conn.send(body, addr);
-  } catch {}
+  } catch {
+    // do nothing
+  }
 }
