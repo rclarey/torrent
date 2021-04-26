@@ -4,9 +4,9 @@ import {
   serve as serveHttp,
   Server as HttpServer,
   ServerRequest as HttpRequest,
-} from "https://deno.land/std@0.87.0/http/mod.ts#^";
-import { MuxAsyncIterator } from "https://deno.land/std@0.87.0/async/mux_async_iterator.ts#^";
-import { equal } from "https://deno.land/std@0.87.0/bytes/mod.ts#^";
+} from "https://deno.land/std@0.95.0/http/mod.ts#^";
+import { MuxAsyncIterator } from "https://deno.land/std@0.95.0/async/mux_async_iterator.ts#^";
+import { equals } from "https://deno.land/std@0.95.0/bytes/mod.ts#^";
 
 import {
   AnnounceEvent,
