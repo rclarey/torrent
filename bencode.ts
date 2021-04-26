@@ -31,7 +31,15 @@ function encode(byteArray: number[], data: Bencodeable): void {
       ...te.encode(data),
     );
   } else if (data instanceof Uint8Array) {
-    byteArray.push(...te.encode(data.length.toString()), COLON, ...data);
+    byteArray.push(...te.encode(data.length.toString()), COLON);
+    // spreading large Uint8Arrays overflows the stack
+    if (data.byteLength > 10000) {
+      for (let i = 0; i < data.byteLength; i += 10000) {
+        byteArray.push(...data.subarray(i, i + 10000));
+      }
+    } else {
+      byteArray.push(...data);
+    }
   } else if (Array.isArray(data)) {
     byteArray.push(LIST);
     for (let i = 0; i < data.length; i += 1) {
