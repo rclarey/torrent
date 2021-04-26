@@ -20,13 +20,14 @@
 This library is currently in development.
 
 ## Roadmap for initial release
-- [X] HTTP(S) Tracker Protocol
-- [X] Tracker Server Implementation
-- [X] Compact Peer Lists (Client)
-- [X] Compact Peer Lists (Server)
-- [X] UDP Trackers (Server)
-- [X] UDP Trackers (Client)
-- [X] Peer Protocol
+
+- [x] HTTP(S) Tracker Protocol
+- [x] Tracker Server Implementation
+- [x] Compact Peer Lists (Client)
+- [x] Compact Peer Lists (Server)
+- [x] UDP Trackers (Server)
+- [x] UDP Trackers (Client)
+- [x] Peer Protocol
 - [ ] Torrent level abstraction
   - [ ] Resumption of torrent
   - [ ] Economics for choking

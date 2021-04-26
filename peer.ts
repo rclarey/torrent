@@ -1,5 +1,7 @@
 // Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
+import { writeAll } from "https://deno.land/std@0.95.0/io/util.ts#^";
+
 import { readInt, readN, spreadUint8Array, writeInt } from "./_bytes.ts";
 
 export enum MsgId {
@@ -16,34 +18,34 @@ export enum MsgId {
 }
 
 export function keepAlive(conn: Deno.Conn): Promise<void> {
-  return Deno.writeAll(conn, new Uint8Array(4)); // length 0 message <=> keep-alive
+  return writeAll(conn, new Uint8Array(4)); // length 0 message <=> keep-alive
 }
 
 export function choke(conn: Deno.Conn): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function unchoke(conn: Deno.Conn): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.unchoke;
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function interested(conn: Deno.Conn): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.interested;
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function uninterested(conn: Deno.Conn): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.uninterested;
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function have(conn: Deno.Conn, index: number): Promise<void> {
@@ -51,7 +53,7 @@ export function have(conn: Deno.Conn, index: number): Promise<void> {
   msg[3] = 5;
   msg[4] = MsgId.have;
   writeInt(index, msg, 4, 5);
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function bitfield(conn: Deno.Conn, bf: Uint8Array): Promise<void> {
@@ -60,7 +62,7 @@ export function bitfield(conn: Deno.Conn, bf: Uint8Array): Promise<void> {
   writeInt(length, msg, 4, 0);
   msg[4] = MsgId.bitfield;
   spreadUint8Array(bf, msg, 5);
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function request(
@@ -75,7 +77,7 @@ export function request(
   writeInt(index, msg, 4, 5);
   writeInt(offset, msg, 4, 9);
   writeInt(length, msg, 4, 13);
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function piece(
@@ -91,7 +93,7 @@ export function piece(
   writeInt(index, msg, 4, 5);
   writeInt(offset, msg, 4, 9);
   spreadUint8Array(block, msg, 13);
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export function cancel(
@@ -106,7 +108,7 @@ export function cancel(
   writeInt(index, msg, 4, 5);
   writeInt(offset, msg, 4, 9);
   writeInt(length, msg, 4, 13);
-  return Deno.writeAll(conn, msg);
+  return writeAll(conn, msg);
 }
 
 export interface KeepAliveMsg {

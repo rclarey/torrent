@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
 
 import { createHash } from "https://deno.land/std@0.95.0/hash/mod.ts#^";
+import { writeAll } from "https://deno.land/std@0.95.0/io/util.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";
@@ -124,21 +125,16 @@ export async function makeTorrent(
   }
 
   const [pieceLength, pieceHashes, nPieces] = makePieceFields(info.size);
+  console.log("using piece length", pieceLength);
   const fd = await Deno.open(path, { read: true });
 
-  for (let i = 0; i < nPieces - 1; i += 1) {
+  for (let i = 0; i < nPieces; i += 1) {
     progress(i, nPieces);
     const toRead = Math.min(pieceLength, info.size - pieceLength * i);
     const content = await readN(fd, toRead);
     const hash = createHash("sha1").update(content).digest();
     spreadUint8Array(new Uint8Array(hash), pieceHashes, 20 * i);
   }
-  // last piece might not be the full size
-  progress(nPieces - 1, nPieces);
-  const toRead = info.size - (nPieces - 1) * pieceLength;
-  const content = await readN(fd, toRead);
-  const hash = createHash("sha1").update(content).digest();
-  spreadUint8Array(new Uint8Array(hash), pieceHashes, 20 * (nPieces - 1));
 
   fd.close();
 
@@ -222,11 +218,11 @@ if (import.meta.main) {
 
   console.log(`making .torrent file for ${name}`);
   const data = await makeTorrent(path!, tracker!, comment);
-  const outfile = await Deno.open(
-    `${name}.torrent`,
-    { create: true, write: true },
-  );
-  await Deno.writeAll(outfile, data);
+  const outfile = await Deno.open(`${name}.torrent`, {
+    create: true,
+    write: true,
+  });
+  await writeAll(outfile, data);
   outfile.close();
   console.log(`\noutput -> ${name}.torrent`);
 }

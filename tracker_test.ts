@@ -19,14 +19,21 @@ async function httpAnnounceFullServer() {
   await req.respond({
     body: te.encode(
       "d" +
-        "8:complete" + "i0e" +
-        "10:incomplete" + "i1e" +
-        "8:interval" + "i900e" +
-        "5:peers" + "l" +
+        "8:complete" +
+        "i0e" +
+        "10:incomplete" +
+        "i1e" +
+        "8:interval" +
+        "i900e" +
+        "5:peers" +
+        "l" +
         "d" +
-        "4:port" + "i6881e" +
-        "2:ip" + "12:192.168.0.42" +
-        "7:peer id" + "20:abcdefghijklmnopqrst" +
+        "4:port" +
+        "i6881e" +
+        "2:ip" +
+        "12:192.168.0.42" +
+        "7:peer id" +
+        "20:abcdefghijklmnopqrst" +
         "e" +
         "e" +
         "e",
@@ -46,10 +53,14 @@ async function httpAnnounceCompactServer() {
     body: Uint8Array.from([
       ...te.encode(
         "d" +
-          "8:complete" + "i0e" +
-          "10:incomplete" + "i1e" +
-          "8:interval" + "i900e" +
-          "5:peers" + "6:",
+          "8:complete" +
+          "i0e" +
+          "10:incomplete" +
+          "i1e" +
+          "8:interval" +
+          "i900e" +
+          "5:peers" +
+          "6:",
       ),
       ...[192, 168, 0, 42, (8080 / 256) | 0, 8080 % 256],
       ...te.encode("e"),
@@ -62,18 +73,20 @@ async function httpScrapeServer() {
   const te = new TextEncoder();
   const s = serve("127.0.0.1:3000");
   const { value: req } = await s[Symbol.asyncIterator]().next();
-  assertEquals(
-    req.url,
-    "/scrape?info_hash=abcdefghijklmnopqrst",
-  );
+  assertEquals(req.url, "/scrape?info_hash=abcdefghijklmnopqrst");
   await req.respond({
     body: te.encode(
       "d" +
-        "5:files" + "d" +
-        "20:abcdefghijklmnopqrst" + "d" +
-        "8:complete" + "i4e" +
-        "10:downloaded" + "i5e" +
-        "10:incomplete" + "i6e" +
+        "5:files" +
+        "d" +
+        "20:abcdefghijklmnopqrst" +
+        "d" +
+        "8:complete" +
+        "i4e" +
+        "10:downloaded" +
+        "i5e" +
+        "10:incomplete" +
+        "i6e" +
         "e" +
         "e" +
         "e",
@@ -103,9 +116,7 @@ async function httpFailureServer() {
 }
 
 async function udpAnnounceServer() {
-  const conn = Deno.listenDatagram(
-    { port: 3000, transport: "udp" },
-  );
+  const conn = Deno.listenDatagram({ port: 3000, transport: "udp" });
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
@@ -127,9 +138,7 @@ async function udpAnnounceServer() {
 }
 
 async function udpScrapeServer() {
-  const conn = Deno.listenDatagram(
-    { port: 3000, transport: "udp" },
-  );
+  const conn = Deno.listenDatagram({ port: 3000, transport: "udp" });
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
@@ -149,9 +158,7 @@ async function udpScrapeServer() {
 }
 
 async function udpMalformedServer() {
-  const conn = Deno.listenDatagram(
-    { port: 3000, transport: "udp" },
-  );
+  const conn = Deno.listenDatagram({ port: 3000, transport: "udp" });
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
@@ -168,9 +175,7 @@ async function udpMalformedServer() {
 }
 
 async function udpFailureServer() {
-  const conn = Deno.listenDatagram(
-    { port: 3000, transport: "udp" },
-  );
+  const conn = Deno.listenDatagram({ port: 3000, transport: "udp" });
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
@@ -291,12 +296,14 @@ Deno.test("HTTP Tracker - scrape() - ok", async () => {
 
   const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
   const res = await scrape("http://127.0.0.1:3000/announce", [infoHash]);
-  assertEquals(res, [{
-    infoHash,
-    complete: 4,
-    downloaded: 5,
-    incomplete: 6,
-  }]);
+  assertEquals(res, [
+    {
+      infoHash,
+      complete: 4,
+      downloaded: 5,
+      incomplete: 6,
+    },
+  ]);
   await s;
 });
 
@@ -413,12 +420,14 @@ Deno.test("UDP Tracker - scrape() - ok", async () => {
 
   const infoHash = new Uint8Array(20).map((_, i) => 97 + i);
   const res = await scrape("udp://127.0.0.1:3000", [infoHash]);
-  assertEquals(res, [{
-    infoHash,
-    complete: 4,
-    downloaded: 5,
-    incomplete: 6,
-  }]);
+  assertEquals(res, [
+    {
+      infoHash,
+      complete: 4,
+      downloaded: 5,
+      incomplete: 6,
+    },
+  ]);
   await s;
 });
 

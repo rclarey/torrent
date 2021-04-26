@@ -58,7 +58,7 @@ export abstract class AnnounceRequest implements AnnounceInfo {
   /** Number of seconds to advise clients wait between regular requests */
   interval!: number;
   /** Indicates whether or not the client accepts a compact response */
-  compact?: CompactValue;
+  compact!: CompactValue;
   /** Send a list of peers to the requesting client */
   abstract respond(peers: PeerInfo[]): Promise<void>;
   /** Send a failure response to the requesting client */
@@ -77,15 +77,16 @@ export interface HttpAnnounceParams extends AnnounceInfo {
 }
 
 function countPeers(peers: PeerInfo[]): [number, number] {
-  return peers.reduce((counts, { state }) => {
-    counts[state === PeerState.seeder ? 0 : 1] += 1;
-    return counts;
-  }, [0, 0]);
+  return peers.reduce(
+    (counts, { state }) => {
+      counts[state === PeerState.seeder ? 0 : 1] += 1;
+      return counts;
+    },
+    [0, 0],
+  );
 }
 
 export class HttpAnnounceRequest extends AnnounceRequest {
-  /** Indicates whether or not the client accepts a compact response */
-  compact!: CompactValue;
   /** The underlying HTTP request */
   httpRequest!: HttpRequest;
   /**
@@ -252,9 +253,7 @@ export class HttpScrapeRequest extends ScrapeRequest {
   respond(list: ScrapeData[]): Promise<void> {
     try {
       const files = new Map<Uint8Array, ScrapeInfo>(
-        list.map((
-          { infoHash, ...rest },
-        ) => [infoHash, rest]),
+        list.map(({ infoHash, ...rest }) => [infoHash, rest]),
       );
       const body = bencode({ files });
       return this.httpRequest.respond({ body });
@@ -332,25 +331,24 @@ interface ParsedParams {
   key: Uint8Array | null;
 }
 
-function parseParams(
-  req: HttpRequest,
-): ParsedParams {
+function parseParams(req: HttpRequest): ParsedParams {
   let peerId: Uint8Array | null = null;
   let key: Uint8Array | null = null;
   const infoHashes: Uint8Array[] = [];
-  const queryStr = req.url.replace(/[^?]*\?/, "").replace(
-    /(?:^|&)info_hash=([^&]+)/g,
-    (_, hash) => {
+  const queryStr = req.url
+    .replace(/[^?]*\?/, "")
+    .replace(/(?:^|&)info_hash=([^&]+)/g, (_, hash) => {
       infoHashes.push(decodeBinaryData(hash));
       return "&";
-    },
-  ).replace(/(?:^|&)peer_id=([^&]+)/g, (_, id) => {
-    peerId = decodeBinaryData(id);
-    return "&";
-  }).replace(/(?:^|&)key=([^&]+)/g, (_, keyData) => {
-    key = decodeBinaryData(keyData);
-    return "&";
-  });
+    })
+    .replace(/(?:^|&)peer_id=([^&]+)/g, (_, id) => {
+      peerId = decodeBinaryData(id);
+      return "&";
+    })
+    .replace(/(?:^|&)key=([^&]+)/g, (_, keyData) => {
+      key = decodeBinaryData(keyData);
+      return "&";
+    });
 
   let ip = (req.conn.remoteAddr as Deno.NetAddr).hostname;
   if (req.headers.has("X-Forwarded-For")) {
@@ -366,9 +364,13 @@ function parseParams(
   };
 }
 
-function validateAnnounceParams(
-  { ip, params, peerId, infoHashes, key }: ParsedParams,
-): AnnounceInfo | null {
+function validateAnnounceParams({
+  ip,
+  params,
+  peerId,
+  infoHashes,
+  key,
+}: ParsedParams): AnnounceInfo | null {
   if (
     peerId === null ||
     infoHashes.length !== 1 ||
@@ -392,10 +394,10 @@ function validateAnnounceParams(
     downloaded: BigInt(params.get("downloaded")!),
     left: BigInt(params.get("left")!),
     event: maybeEvent && ![...Object.keys(AnnounceEvent)].includes(maybeEvent)
-      ? maybeEvent as AnnounceEvent
+      ? (maybeEvent as AnnounceEvent)
       : AnnounceEvent.empty,
     numWant: maybeNumWant !== null ? Number(maybeNumWant) : undefined,
-    compact: maybeCompact !== null ? maybeCompact as CompactValue : undefined,
+    compact: maybeCompact !== null ? (maybeCompact as CompactValue) : undefined,
     key: key ?? undefined,
   };
 }
@@ -438,7 +440,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
     if (!this.filterList) {
       return false;
     }
-    return !this.filterList.find((x) => equal(x, infoHash));
+    return !this.filterList.find((x) => equals(x, infoHash));
   }
 
   private async *iterateHttpRequests(): AsyncIterableIterator<
@@ -478,10 +480,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             numWant: valid.numWant ?? DEFAULT_WANT,
           });
         } else if (match[1] === "scrape") {
-          yield new HttpScrapeRequest(
-            httpRequest,
-            parsed.infoHashes,
-          );
+          yield new HttpScrapeRequest(httpRequest, parsed.infoHashes);
         } else {
           // TODO
         }
@@ -504,7 +503,8 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
         // if frontMatter === magic, then its a connect request
         // otherwise it's the announce request
         if (
-          frontMatter === CONNECT_MAGIC && action === UdpTrackerAction.connect
+          frontMatter === CONNECT_MAGIC &&
+          action === UdpTrackerAction.connect
         ) {
           const transactionId = data.subarray(12, 16);
           if (data.length < UDP_CONNECT_LENGTH) {
@@ -644,9 +644,10 @@ export function serveTracker(opts: ServeOptions = {}): TrackerServer {
     httpServer = serveHttp({ port: opts.http?.port ?? 80 });
   }
   if (opts.udp?.disable !== true) {
-    udpConn = Deno.listenDatagram(
-      { port: opts.udp?.port ?? 6969, transport: "udp" },
-    );
+    udpConn = Deno.listenDatagram({
+      port: opts.udp?.port ?? 6969,
+      transport: "udp",
+    });
   }
 
   const server = new TrackerServer({

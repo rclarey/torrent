@@ -1,8 +1,5 @@
 import { createFileStorage } from "./storage.ts";
-import {
-  assertEquals,
-  assertThrowsAsync,
-} from "https://deno.land/std@0.95.0/testing/asserts.ts#^";
+import { assertEquals } from "https://deno.land/std@0.95.0/testing/asserts.ts#^";
 import type { SingleFileInfoDict } from "./metainfo.ts";
 
 const baseSingle = {
@@ -42,14 +39,11 @@ Deno.test(
   }),
 );
 
-Deno.test(
-  "FileStorage - get() - file doesn't exist",
-  async () => {
-    const storage = await createFileStorage(baseSingle, Deno.cwd());
-    const bytes = await storage.get(2, 4);
-    assertEquals(bytes, null);
-  },
-);
+Deno.test("FileStorage - get() - file doesn't exist", async () => {
+  const storage = await createFileStorage(baseSingle, Deno.cwd());
+  const bytes = await storage.get(2, 4);
+  assertEquals(bytes, null);
+});
 
 Deno.test(
   "FileStorage - get() - reading fails",
@@ -74,19 +68,16 @@ Deno.test(
   }),
 );
 
-Deno.test(
-  "FileStorage - set() - file doesn't exist",
-  async () => {
-    const storage = await createFileStorage(baseSingle, Deno.cwd());
-    const result = await storage.set(2, Uint8Array.from([2, 1, 2, 1]));
-    assertEquals(result, true);
-    assertEquals(
-      (await Deno.readFile(baseSingle.name)).toString(),
-      "0,0,2,1,2,1",
-    );
-    await Deno.remove(baseSingle.name);
-  },
-);
+Deno.test("FileStorage - set() - file doesn't exist", async () => {
+  const storage = await createFileStorage(baseSingle, Deno.cwd());
+  const result = await storage.set(2, Uint8Array.from([2, 1, 2, 1]));
+  assertEquals(result, true);
+  assertEquals(
+    (await Deno.readFile(baseSingle.name)).toString(),
+    "0,0,2,1,2,1",
+  );
+  await Deno.remove(baseSingle.name);
+});
 
 Deno.test(
   "FileStorage - set() - writing fails",
@@ -107,11 +98,9 @@ Deno.test(
 
 Deno.test("MultiFileStorage - get() - inside one file", async () => {
   const storage = await createFileStorage(baseMulti, Deno.cwd());
-  await Deno.writeFile(
-    "__test/__test.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
-  );
+  await Deno.writeFile("__test/__test.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
 
   const bytes = await storage.get(2, 2);
   assertEquals(bytes!.toString(), "3,4");
@@ -130,11 +119,9 @@ Deno.test("MultiFileStorage - get() - across files", async () => {
     },
     Deno.cwd(),
   );
-  await Deno.writeFile(
-    "__test/__test1.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
-  );
+  await Deno.writeFile("__test/__test1.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
   await Deno.writeFile(
     "__test/dir1/__test2.txt",
     Uint8Array.from([9, 8, 7, 6]),
@@ -155,11 +142,9 @@ Deno.test("MultiFileStorage - get() - file doesn't exist", async () => {
 
 Deno.test("MultiFileStorage - get() - reading fails", async () => {
   const storage = await createFileStorage(baseMulti, Deno.cwd());
-  await Deno.writeFile(
-    "__test/__test.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
-  );
+  await Deno.writeFile("__test/__test.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
 
   const bytes = await storage.get(3, 4);
   assertEquals(bytes, null);
@@ -169,11 +154,9 @@ Deno.test("MultiFileStorage - get() - reading fails", async () => {
 
 Deno.test("MultiFileStorage - set() - inside one file", async () => {
   const storage = await createFileStorage(baseMulti, Deno.cwd());
-  await Deno.writeFile(
-    "__test/__test.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
-  );
+  await Deno.writeFile("__test/__test.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
 
   const result = await storage.set(2, Uint8Array.from([9, 8]));
 
@@ -187,19 +170,20 @@ Deno.test("MultiFileStorage - set() - inside one file", async () => {
 });
 
 Deno.test("MultiFileStorage - set() - across files", async () => {
-  const storage = await createFileStorage({
-    ...baseMulti,
-    files: [
-      { path: ["__test1.txt"], length: 4 },
-      { path: ["dir1", "__test2.txt"], length: 4 },
-    ],
-  }, Deno.cwd());
-
-  await Deno.writeFile(
-    "__test/__test1.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
+  const storage = await createFileStorage(
+    {
+      ...baseMulti,
+      files: [
+        { path: ["__test1.txt"], length: 4 },
+        { path: ["dir1", "__test2.txt"], length: 4 },
+      ],
+    },
+    Deno.cwd(),
   );
+
+  await Deno.writeFile("__test/__test1.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
   await Deno.writeFile(
     "__test/dir1/__test2.txt",
     Uint8Array.from([9, 8, 7, 6]),
@@ -234,11 +218,9 @@ Deno.test("MultiFileStorage - set() - file doesn't exist", async () => {
 
 Deno.test("MultiFileStorage - set() - writing fails", async () => {
   const storage = await createFileStorage(baseMulti, Deno.cwd());
-  await Deno.writeFile(
-    "__test/__test.txt",
-    Uint8Array.from([1, 2, 3, 4]),
-    { create: true },
-  );
+  await Deno.writeFile("__test/__test.txt", Uint8Array.from([1, 2, 3, 4]), {
+    create: true,
+  });
 
   const seek = Deno.File.prototype.seek;
   Deno.File.prototype.seek = () => {

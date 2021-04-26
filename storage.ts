@@ -1,5 +1,7 @@
 // Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
+import { writeAll } from "https://deno.land/std@0.95.0/io/util.ts#^";
+
 import type { InfoDict, MultiFileFields } from "./metainfo.ts";
 import { readN } from "./_bytes.ts";
 
@@ -41,7 +43,7 @@ class FileStorage implements Storage {
     try {
       f = await Deno.open(this.path, OPEN_OPTIONS);
       f.seek(offset, Deno.SeekMode.Start);
-      await Deno.writeAll(f, bytes);
+      await writeAll(f, bytes);
       f.close();
       return true;
     } catch {
@@ -122,7 +124,7 @@ class MultiFileStorage implements Storage {
     return await this.findAndDo(
       offset,
       bytes,
-      (file, arr) => Deno.writeAll(file, arr),
+      (file, arr) => writeAll(file, arr),
     );
   }
 }
