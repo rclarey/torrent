@@ -1,8 +1,8 @@
 import {
   assertEquals,
   assertThrowsAsync,
-} from "https://deno.land/std@0.95.0/testing/asserts.ts#^";
-import { serve } from "https://deno.land/std@0.95.0/http/mod.ts#^";
+} from "https://deno.land/std@0.96.0/testing/asserts.ts#^";
+import { serve } from "https://deno.land/std@0.96.0/http/mod.ts#^";
 
 import { announce, scrape } from "./tracker.ts";
 import { AnnounceEvent, UdpTrackerAction } from "./types.ts";

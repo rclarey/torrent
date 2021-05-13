@@ -1,5 +1,5 @@
 import { createFileStorage } from "./storage.ts";
-import { assertEquals } from "https://deno.land/std@0.95.0/testing/asserts.ts#^";
+import { assertEquals } from "https://deno.land/std@0.96.0/testing/asserts.ts#^";
 import type { SingleFileInfoDict } from "./metainfo.ts";
 
 const baseSingle = {
