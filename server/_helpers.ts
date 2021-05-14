@@ -6,7 +6,7 @@ import {
 
 import { bencode } from "../bencode.ts";
 import { UdpTrackerAction } from "../types.ts";
-import { spreadUint8Array, writeInt } from "../_bytes.ts";
+import { writeInt } from "../_bytes.ts";
 
 export function sendHttpError(
   httpRequest: HttpRequest,
@@ -29,8 +29,8 @@ export async function sendUdpError(
     const message = new TextEncoder().encode(reason);
     const body = new Uint8Array(8 + message.byteLength);
     writeInt(UdpTrackerAction.error, body, 4, 0);
-    spreadUint8Array(transactionId, body, 4);
-    spreadUint8Array(message, body, 8);
+    body.set(transactionId, 4);
+    body.set(message, 8);
     await conn.send(body, addr);
   } catch {
     // do nothing

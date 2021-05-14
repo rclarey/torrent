@@ -20,13 +20,7 @@ import {
 } from "../types.ts";
 import { bencode } from "../bencode.ts";
 import { sendHttpError, sendUdpError } from "./_helpers.ts";
-import {
-  decodeBinaryData,
-  readBigInt,
-  readInt,
-  spreadUint8Array,
-  writeInt,
-} from "../_bytes.ts";
+import { decodeBinaryData, readBigInt, readInt, writeInt } from "../_bytes.ts";
 
 const CONNECT_MAGIC = 0x41727101980n;
 const DEFAULT_WANT = 50;
@@ -196,7 +190,7 @@ export class UdpAnnounceRequest extends AnnounceRequest {
       const [complete, incomplete] = countPeers(peers);
 
       writeInt(UdpTrackerAction.announce, body, 4, 0);
-      spreadUint8Array(this.transactionId, body, 4);
+      body.set(this.transactionId, 4);
       writeInt(this.interval, body, 4, 8);
       writeInt(incomplete, body, 4, 12);
       writeInt(complete, body, 4, 16);
@@ -206,7 +200,7 @@ export class UdpAnnounceRequest extends AnnounceRequest {
         if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
           throw new Error("Bad peer ip");
         }
-        spreadUint8Array(parts, body, 20 + i * 6);
+        body.set(parts, 20 + i * 6);
         writeInt(peer.port, body, 2, 24 + i * 6);
       }
 
@@ -302,7 +296,7 @@ export class UdpScrapeRequest extends ScrapeRequest {
       const body = new Uint8Array(8 + 12 * list.length);
 
       writeInt(UdpTrackerAction.scrape, body, 4, 0);
-      spreadUint8Array(this.transactionId, body, 4);
+      body.set(this.transactionId, 4);
       let i = 0;
       for (const file of list) {
         writeInt(file.complete, body, 4, 8 + 12 * i);
@@ -524,8 +518,8 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
 
           const body = new Uint8Array(16);
           writeInt(UdpTrackerAction.connect, body, 4, 0);
-          spreadUint8Array(transactionId, body, 4);
-          spreadUint8Array(connectionId, body, 8);
+          body.set(transactionId, 4);
+          body.set(connectionId, 8);
           await this.udpConn!.send(body, addr);
           continue;
         }

@@ -2,7 +2,7 @@
 
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
-import { readInt, readN, spreadUint8Array, writeInt } from "./_bytes.ts";
+import { readInt, readN, writeInt } from "./_bytes.ts";
 
 export enum MsgId {
   choke = 0,
@@ -17,38 +17,38 @@ export enum MsgId {
   disconnect = 9007199254740991, // max safe int
 }
 
-export function keepAlive(conn: Deno.Conn): Promise<void> {
+export function keepAlive(conn: Deno.Writer): Promise<void> {
   return writeAll(conn, new Uint8Array(4)); // length 0 message <=> keep-alive
 }
 
-export function choke(conn: Deno.Conn): Promise<void> {
+export function choke(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   return writeAll(conn, msg);
 }
 
-export function unchoke(conn: Deno.Conn): Promise<void> {
+export function unchoke(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.unchoke;
   return writeAll(conn, msg);
 }
 
-export function interested(conn: Deno.Conn): Promise<void> {
+export function interested(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.interested;
   return writeAll(conn, msg);
 }
 
-export function uninterested(conn: Deno.Conn): Promise<void> {
+export function uninterested(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.uninterested;
   return writeAll(conn, msg);
 }
 
-export function have(conn: Deno.Conn, index: number): Promise<void> {
+export function have(conn: Deno.Writer, index: number): Promise<void> {
   const msg = new Uint8Array(9);
   msg[3] = 5;
   msg[4] = MsgId.have;
@@ -56,17 +56,17 @@ export function have(conn: Deno.Conn, index: number): Promise<void> {
   return writeAll(conn, msg);
 }
 
-export function bitfield(conn: Deno.Conn, bf: Uint8Array): Promise<void> {
+export function bitfield(conn: Deno.Writer, bf: Uint8Array): Promise<void> {
   const length = 1 + bf.length;
   const msg = new Uint8Array(4 + length);
   writeInt(length, msg, 4, 0);
   msg[4] = MsgId.bitfield;
-  spreadUint8Array(bf, msg, 5);
+  msg.set(bf, 5);
   return writeAll(conn, msg);
 }
 
 export function request(
-  conn: Deno.Conn,
+  conn: Deno.Writer,
   index: number,
   offset: number,
   length: number,
@@ -81,7 +81,7 @@ export function request(
 }
 
 export function piece(
-  conn: Deno.Conn,
+  conn: Deno.Writer,
   index: number,
   offset: number,
   block: Uint8Array,
@@ -92,12 +92,12 @@ export function piece(
   msg[4] = MsgId.piece;
   writeInt(index, msg, 4, 5);
   writeInt(offset, msg, 4, 9);
-  spreadUint8Array(block, msg, 13);
+  msg.set(block, 13);
   return writeAll(conn, msg);
 }
 
 export function cancel(
-  conn: Deno.Conn,
+  conn: Deno.Writer,
   index: number,
   offset: number,
   length: number,
@@ -111,66 +111,68 @@ export function cancel(
   return writeAll(conn, msg);
 }
 
-export interface KeepAliveMsg {
-  conn: Deno.Conn;
+type Connection = Deno.Reader & Deno.Writer;
+
+export interface KeepAliveMsg<T extends Connection> {
+  conn: T;
 }
 
-export interface BodylessMsg {
+export interface BodylessMsg<T extends Connection> {
   id: MsgId.choke | MsgId.unchoke | MsgId.interested | MsgId.uninterested;
-  conn: Deno.Conn;
+  conn: T;
 }
 
-export interface HaveMsg {
+export interface HaveMsg<T extends Connection> {
   id: MsgId.have;
-  conn: Deno.Conn;
+  conn: T;
   index: number;
 }
 
-export interface BitfieldMsg {
+export interface BitfieldMsg<T extends Connection> {
   id: MsgId.bitfield;
-  conn: Deno.Conn;
+  conn: T;
   bitfield: Uint8Array;
 }
 
-export interface RequestMsg {
+export interface RequestMsg<T extends Connection> {
   id: MsgId.request;
-  conn: Deno.Conn;
+  conn: T;
   index: number;
   offset: number;
   length: number;
 }
 
-export interface PieceMsg {
+export interface PieceMsg<T extends Connection> {
   id: MsgId.piece;
-  conn: Deno.Conn;
+  conn: T;
   index: number;
   offset: number;
   block: Uint8Array;
 }
 
-export interface CancelMsg {
+export interface CancelMsg<T extends Connection> {
   id: MsgId.cancel;
-  conn: Deno.Conn;
+  conn: T;
   index: number;
   offset: number;
   length: number;
 }
 
-export interface DisconnectMsg {
+export interface DisconnectMsg<T extends Connection> {
   id: MsgId.disconnect;
-  conn: Deno.Conn;
+  conn: T;
   reason?: string;
 }
 
-export type PeerMsg =
-  | KeepAliveMsg
-  | BodylessMsg
-  | HaveMsg
-  | BitfieldMsg
-  | RequestMsg
-  | PieceMsg
-  | CancelMsg
-  | DisconnectMsg;
+export type PeerMsg<T extends Connection> =
+  | KeepAliveMsg<T>
+  | BodylessMsg<T>
+  | HaveMsg<T>
+  | BitfieldMsg<T>
+  | RequestMsg<T>
+  | PieceMsg<T>
+  | CancelMsg<T>
+  | DisconnectMsg<T>;
 
 function checkValidLength(actual: number, expected: number): void {
   if (actual !== expected) {
@@ -178,9 +180,9 @@ function checkValidLength(actual: number, expected: number): void {
   }
 }
 
-export async function* iteratePeerMsgs(
-  conn: Deno.Conn,
-): AsyncIterableIterator<PeerMsg> {
+export async function* iteratePeerMsgs<T extends Connection>(
+  conn: T,
+): AsyncIterableIterator<PeerMsg<T>> {
   try {
     while (true) {
       const length = readInt(await readN(conn, 4), 4, 0);

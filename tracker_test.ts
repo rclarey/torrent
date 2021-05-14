@@ -6,7 +6,7 @@ import { serve } from "https://deno.land/std@0.96.0/http/mod.ts#^";
 
 import { announce, scrape } from "./tracker.ts";
 import { AnnounceEvent, UdpTrackerAction } from "./types.ts";
-import { spreadUint8Array, writeInt } from "./_bytes.ts";
+import { writeInt } from "./_bytes.ts";
 
 async function httpAnnounceFullServer() {
   const te = new TextEncoder();
@@ -120,18 +120,18 @@ async function udpAnnounceServer() {
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
-  spreadUint8Array(connectReq.subarray(12, 16), connectRes, 4);
+  connectRes.set(connectReq.subarray(12, 16), 4);
   crypto.getRandomValues(connectRes.subarray(8, 16));
   await conn.send(connectRes, clientAddr1);
 
   const [announceReq, clientAddr2] = await conn.receive();
   const announceRes = new Uint8Array(26);
   writeInt(UdpTrackerAction.announce, announceRes, 4, 0);
-  spreadUint8Array(announceReq.subarray(12, 16), announceRes, 4);
+  announceRes.set(announceReq.subarray(12, 16), 4);
   writeInt(900, announceRes, 4, 8); // interval
   writeInt(1, announceRes, 4, 12); // incomplete
   writeInt(0, announceRes, 4, 16); // complete
-  spreadUint8Array([192, 168, 0, 42], announceRes, 20); // IP
+  announceRes.set([192, 168, 0, 42], 20); // IP
   writeInt(8080, announceRes, 2, 24); // port
   await conn.send(announceRes, clientAddr2);
   conn.close();
@@ -142,14 +142,14 @@ async function udpScrapeServer() {
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
-  spreadUint8Array(connectReq.subarray(12, 16), connectRes, 4);
+  connectRes.set(connectReq.subarray(12, 16), 4);
   crypto.getRandomValues(connectRes.subarray(8, 16));
   await conn.send(connectRes, clientAddr1);
 
   const [scrapeReq, clientAddr2] = await conn.receive();
   const scrapeRes = new Uint8Array(26);
   writeInt(UdpTrackerAction.scrape, scrapeRes, 4, 0);
-  spreadUint8Array(scrapeReq.subarray(12, 16), scrapeRes, 4);
+  scrapeRes.set(scrapeReq.subarray(12, 16), 4);
   writeInt(4, scrapeRes, 4, 8); // complete
   writeInt(5, scrapeRes, 4, 12); // downloaded
   writeInt(6, scrapeRes, 4, 16); // incomplete
@@ -162,14 +162,14 @@ async function udpMalformedServer() {
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
-  spreadUint8Array(connectReq.subarray(12, 16), connectRes, 4);
+  connectRes.set(connectReq.subarray(12, 16), 4);
   crypto.getRandomValues(connectRes.subarray(8, 16));
   await conn.send(connectRes, clientAddr1);
 
   const [req, clientAddr2] = await conn.receive();
   const res = new Uint8Array(100);
   writeInt(17, res, 4, 0); // invalid action
-  spreadUint8Array(req.subarray(12, 16), res, 4);
+  res.set(req.subarray(12, 16), 4);
   await conn.send(res, clientAddr2);
   conn.close();
 }
@@ -179,15 +179,15 @@ async function udpFailureServer() {
 
   const [connectReq, clientAddr1] = await conn.receive();
   const connectRes = new Uint8Array(16);
-  spreadUint8Array(connectReq.subarray(12, 16), connectRes, 4);
+  connectRes.set(connectReq.subarray(12, 16), 4);
   crypto.getRandomValues(connectRes.subarray(8, 16));
   await conn.send(connectRes, clientAddr1);
 
   const [req, clientAddr2] = await conn.receive();
   const res = new Uint8Array(26);
   writeInt(UdpTrackerAction.error, res, 4, 0);
-  spreadUint8Array(req.subarray(12, 16), res, 4);
-  spreadUint8Array(new TextEncoder().encode("something happened"), res, 8);
+  res.set(req.subarray(12, 16), 4);
+  res.set(new TextEncoder().encode("something happened"), 8);
   await conn.send(res, clientAddr2);
   conn.close();
 }

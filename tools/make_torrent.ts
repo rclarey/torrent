@@ -5,7 +5,7 @@ import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";
-import { readN, spreadUint8Array } from "../_bytes.ts";
+import { readN } from "../_bytes.ts";
 
 let progress: (i: number, total: number) => void = () => {};
 
@@ -74,7 +74,7 @@ async function hashMultiFilePieces(
 
       await readN(fd, toRead, content.subarray(contentOffset));
       const hash = createHash("sha1").update(content).digest();
-      spreadUint8Array(new Uint8Array(hash), pieceHashes, 20 * piece);
+      pieceHashes.set(new Uint8Array(hash), 20 * piece);
 
       progress(piece, nPieces);
       piece += 1;
@@ -133,7 +133,7 @@ export async function makeTorrent(
     const toRead = Math.min(pieceLength, info.size - pieceLength * i);
     const content = await readN(fd, toRead);
     const hash = createHash("sha1").update(content).digest();
-    spreadUint8Array(new Uint8Array(hash), pieceHashes, 20 * i);
+    pieceHashes.set(new Uint8Array(hash), 20 * i);
   }
 
   fd.close();

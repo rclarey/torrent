@@ -14,7 +14,6 @@ import {
   encodeBinaryData,
   equals,
   readInt,
-  spreadUint8Array,
   writeBigInt,
   writeInt,
 } from "./_bytes.ts";
@@ -137,7 +136,7 @@ export async function withConnect<T>(
 
       let res: Uint8Array;
       try {
-        res = await withTimeout(async (): Promise<Uint8Array> => {
+        res = await withTimeout(async () => {
           await socket.send(connectBody, serverAddr);
           return (await socket.receive())[0];
         }, 1000 * 15 * (2 ** retryAttempt));
@@ -166,7 +165,7 @@ export async function withConnect<T>(
       connectionId = res.subarray(8, 16);
       connTimer = setTimeout(() => connectionId = null, 1000 * 60);
     } else {
-      spreadUint8Array(connectionId, reqBody, 0);
+      reqBody.set(connectionId, 0);
       const transactionId = crypto.getRandomValues(reqBody.subarray(12, 16));
 
       let res: Uint8Array;
@@ -205,7 +204,7 @@ function scrapeUdp(
   const body = new Uint8Array(16 + 20 * infoHashes.length);
   writeInt(UdpTrackerAction.scrape, body, 4, 8);
   for (const [i, hash] of infoHashes.entries()) {
-    spreadUint8Array(hash, body, 16 + 20 * i);
+    body.set(hash, 16 + 20 * i);
   }
 
   return withConnect(
@@ -367,6 +366,8 @@ async function announceHttp(
   return parseHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
+const NEGATIVE_ONE = (2 ** 32) - 1;
+
 function announceUdp(
   url: string,
   info: AnnounceInfo,
@@ -378,20 +379,18 @@ function announceUdp(
 
   const body = new Uint8Array(98);
   writeInt(UdpTrackerAction.announce, body, 4, 8);
-  spreadUint8Array(info.infoHash, body, 16);
-  spreadUint8Array(info.peerId, body, 36);
+  body.set(info.infoHash, 16);
+  body.set(info.peerId, 36);
   writeBigInt(info.downloaded, body, 8, 56);
   writeBigInt(info.left, body, 8, 64);
   writeBigInt(info.uploaded, body, 8, 72);
   writeInt(UDP_EVENT_MAP.indexOf(info.event), body, 4, 80);
-  spreadUint8Array(ipParts, body, 84);
+  body.set(ipParts, 84);
   if (info.key) {
-    spreadUint8Array(info.key, body, 88);
+    body.set(info.key, 88);
   }
-  // since we only write the bottom 4 bytes, Number.MAX_SAFE_INTEGER is
-  // equivalent to -1 as a 32-bit int, which in this context means
-  // "give me the default amount"
-  writeInt(info.numWant ?? Number.MAX_SAFE_INTEGER, body, 4, 92);
+  // -1 in this context means "give me the default amount"
+  writeInt(info.numWant ?? NEGATIVE_ONE, body, 4, 92);
   writeInt(info.port, body, 2, 96);
 
   return withConnect(

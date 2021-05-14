@@ -89,22 +89,6 @@ export function writeBigInt(
   }
 }
 
-export function spreadUint8Array(
-  from: Uint8Array | number[],
-  to: Uint8Array,
-  offset: number,
-): void {
-  if (from.length + offset > to.length) {
-    throw new Error(
-      `attempt to spread ${from.length} bytes with offset ${offset}, but array on had length ${to.length}`,
-    );
-  }
-
-  for (const [ind, value] of from.entries()) {
-    to[ind + offset] = value;
-  }
-}
-
 export function decodeBinaryData(s: string): Uint8Array {
   const hash: number[] = [];
   for (let i = 0; i < s.length;) {
