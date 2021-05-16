@@ -1,8 +1,12 @@
 // Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
 
+import { equals } from "https://deno.land/std@0.96.0/bytes/mod.ts#^";
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
 import { readInt, readN, writeInt } from "./_bytes.ts";
+import { withTimeout } from "./utils.ts";
+
+export type Connection = Deno.Reader & Deno.Writer;
 
 export enum MsgId {
   choke = 0,
@@ -17,38 +21,85 @@ export enum MsgId {
   disconnect = 9007199254740991, // max safe int
 }
 
-export function keepAlive(conn: Deno.Writer): Promise<void> {
+// 'BitTorrent protocol' as bytes
+// deno-fmt-ignore
+const HANDSHAKE_PSTR = Uint8Array.from([
+  66, 105, 116, 84, 111, 114, 114, 101, 110, 116, 32, 112, 114, 111, 116, 111, 99, 111, 108,
+]);
+
+// deno-fmt-ignore
+const HANDSHAKE_HEADER = [
+  // length of pstr
+  19,
+  ...HANDSHAKE_PSTR,
+  // extension bytes
+  0, 0, 0, 0, 0, 0, 0, 0
+];
+
+export function sendHandshake(
+  conn: Deno.Writer,
+  infoHash: Uint8Array,
+  peerId: Uint8Array,
+): Promise<void> {
+  const msg = new Uint8Array(68);
+  msg.set(HANDSHAKE_HEADER);
+  msg.set(infoHash, 28);
+  msg.set(peerId, 48);
+  return writeAll(conn, msg);
+}
+
+export async function* receiveHandshake(
+  conn: Deno.Reader,
+): AsyncGenerator<Uint8Array, Uint8Array | null, never> {
+  try {
+    const length = (await readN(conn, 1))[0];
+    if (length !== 19) {
+      return null;
+    }
+    const pstr = await readN(conn, 19);
+    if (!equals(HANDSHAKE_PSTR, pstr)) {
+      return null;
+    }
+
+    yield readN(conn, 20);
+    return readN(conn, 20);
+  } catch {
+    return null;
+  }
+}
+
+export function sendKeepAlive(conn: Deno.Writer): Promise<void> {
   return writeAll(conn, new Uint8Array(4)); // length 0 message <=> keep-alive
 }
 
-export function choke(conn: Deno.Writer): Promise<void> {
+export function sendChoke(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   return writeAll(conn, msg);
 }
 
-export function unchoke(conn: Deno.Writer): Promise<void> {
+export function sendUnchoke(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.unchoke;
   return writeAll(conn, msg);
 }
 
-export function interested(conn: Deno.Writer): Promise<void> {
+export function sendInterested(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.interested;
   return writeAll(conn, msg);
 }
 
-export function uninterested(conn: Deno.Writer): Promise<void> {
+export function sendUninterested(conn: Deno.Writer): Promise<void> {
   const msg = new Uint8Array(5);
   msg[3] = 1; // length 1
   msg[4] = MsgId.uninterested;
   return writeAll(conn, msg);
 }
 
-export function have(conn: Deno.Writer, index: number): Promise<void> {
+export function sendHave(conn: Deno.Writer, index: number): Promise<void> {
   const msg = new Uint8Array(9);
   msg[3] = 5;
   msg[4] = MsgId.have;
@@ -56,7 +107,7 @@ export function have(conn: Deno.Writer, index: number): Promise<void> {
   return writeAll(conn, msg);
 }
 
-export function bitfield(conn: Deno.Writer, bf: Uint8Array): Promise<void> {
+export function sendBitfield(conn: Deno.Writer, bf: Uint8Array): Promise<void> {
   const length = 1 + bf.length;
   const msg = new Uint8Array(4 + length);
   writeInt(length, msg, 4, 0);
@@ -65,7 +116,7 @@ export function bitfield(conn: Deno.Writer, bf: Uint8Array): Promise<void> {
   return writeAll(conn, msg);
 }
 
-export function request(
+export function sendRequest(
   conn: Deno.Writer,
   index: number,
   offset: number,
@@ -80,7 +131,7 @@ export function request(
   return writeAll(conn, msg);
 }
 
-export function piece(
+export function sendPiece(
   conn: Deno.Writer,
   index: number,
   offset: number,
@@ -96,7 +147,7 @@ export function piece(
   return writeAll(conn, msg);
 }
 
-export function cancel(
+export function sendCancel(
   conn: Deno.Writer,
   index: number,
   offset: number,
@@ -110,8 +161,6 @@ export function cancel(
   writeInt(length, msg, 4, 13);
   return writeAll(conn, msg);
 }
-
-type Connection = Deno.Reader & Deno.Writer;
 
 export interface KeepAliveMsg<T extends Connection> {
   conn: T;

@@ -18,6 +18,7 @@ import {
   writeInt,
 } from "./_bytes.ts";
 import { arr, inst, num, obj, or, undef } from "./valid.ts";
+import { withTimeout } from "./utils.ts";
 
 const FETCH_TIMEOUT = 1000 * 10;
 const UDP_CONNECT_MAGIC = 0x41727101980n;
@@ -26,29 +27,6 @@ const UDP_ANNOUNCE_LENGTH = 20;
 const UDP_SCRAPE_LENGTH = 8;
 const UDP_ERROR_LENGTH = 9;
 const MAX_UDP_ATTEMPTS = 8;
-
-/** An error thrown when a request times out */
-export class TimeoutError extends Error {
-  constructor() {
-    super("request timed out");
-  }
-}
-
-export function withTimeout<T>(
-  func: () => Promise<T>,
-  timeout: number,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const to = setTimeout(
-      () => reject(new TimeoutError()),
-      timeout,
-    );
-    func().then((r) => {
-      clearTimeout(to);
-      resolve(r);
-    });
-  });
-}
 
 function timedFetch(
   url: string,

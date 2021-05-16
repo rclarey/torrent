@@ -60,7 +60,7 @@ class FileStorage implements Storage {
 class MultiFileStorage implements Storage {
   constructor(public dir: string, public files: MultiFileFields[]) {}
 
-  async ensurePaths(): Promise<void> {
+  private async ensurePaths(): Promise<void> {
     await Deno.mkdir(this.dir, { recursive: true });
     for (const { path } of this.files) {
       if (path.length > 1) {
@@ -75,6 +75,7 @@ class MultiFileStorage implements Storage {
     offset: number,
     bytes: Uint8Array,
     action: (file: Deno.File, arr: Uint8Array) => Promise<void>,
+    retry = false,
   ): Promise<boolean> {
     const length = bytes.length;
     let f: Deno.File | null = null;
@@ -101,7 +102,12 @@ class MultiFileStorage implements Storage {
 
         fileStart = fileEnd;
       }
-    } catch {
+    } catch (e) {
+      if (!retry && e instanceof Deno.errors.NotFound) {
+        await this.ensurePaths();
+        return this.findAndDo(offset, bytes, action, true);
+      }
+
       try {
         f?.close();
       } catch {
@@ -129,16 +135,13 @@ class MultiFileStorage implements Storage {
   }
 }
 
-export async function createFileStorage(
+export function createFileStorage(
   info: InfoDict,
   dirPath: string,
-): Promise<Storage> {
+): Storage {
   const topLevelPath = `${dirPath}/${info.name}`;
   if ("length" in info) {
     return new FileStorage(topLevelPath);
   }
-
-  const storage = new MultiFileStorage(topLevelPath, info.files);
-  await storage.ensurePaths();
-  return storage;
+  return new MultiFileStorage(topLevelPath, info.files);
 }
