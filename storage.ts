@@ -5,10 +5,13 @@ import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 import type { InfoDict, MultiFileFields } from "./metainfo.ts";
 import { readN } from "./_bytes.ts";
 
+/** Abstraction of the different ways to persist the downloaded files */
 export interface Storage {
   get(offset: number, length: number): Promise<Uint8Array | null>;
-  /* return value indicates whether the call was successful or not */
+  /** return value indicates whether the call was successful or not */
   set(offset: number, bytes: Uint8Array): Promise<boolean>;
+  /** Returns true if the file or files exist already */
+  exists(): Promise<boolean>;
 }
 
 const OPEN_OPTIONS = {
@@ -55,6 +58,15 @@ class FileStorage implements Storage {
       return false;
     }
   }
+
+  async exists(): Promise<boolean> {
+    try {
+      await Deno.stat(this.path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 class MultiFileStorage implements Storage {
@@ -75,7 +87,7 @@ class MultiFileStorage implements Storage {
     offset: number,
     bytes: Uint8Array,
     action: (file: Deno.File, arr: Uint8Array) => Promise<void>,
-    retry = false,
+    retry = false
   ): Promise<boolean> {
     const length = bytes.length;
     let f: Deno.File | null = null;
@@ -127,18 +139,26 @@ class MultiFileStorage implements Storage {
   }
 
   async set(offset: number, bytes: Uint8Array): Promise<boolean> {
-    return await this.findAndDo(
-      offset,
-      bytes,
-      (file, arr) => writeAll(file, arr),
+    return await this.findAndDo(offset, bytes, (file, arr) =>
+      writeAll(file, arr)
     );
+  }
+
+  async exists(): Promise<boolean> {
+    for (const file of this.files) {
+      try {
+        await Deno.stat([this.dir, ...file.path].join("/"));
+        return true;
+      } catch {
+        // do nothing
+      }
+    }
+
+    return false;
   }
 }
 
-export function createFileStorage(
-  info: InfoDict,
-  dirPath: string,
-): Storage {
+export function createFileStorage(info: InfoDict, dirPath: string): Storage {
   const topLevelPath = `${dirPath}/${info.name}`;
   if ("length" in info) {
     return new FileStorage(topLevelPath);
