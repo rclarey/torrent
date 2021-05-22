@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import { Storage } from "./storage.ts";
 
@@ -15,12 +15,9 @@ const enum TorrentState {
 export class Torrent {
   state = TorrentState.starting;
 
-  constructor({}: TorrentParams) {
-  }
+  constructor({}: TorrentParams) {}
 
-  async requestPeers() {
-  }
+  async requestPeers() {}
 
-  async download(): Promise<void> {
-  }
+  async download(): Promise<void> {}
 }

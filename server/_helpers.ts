@@ -1,8 +1,6 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
-import {
-  ServerRequest as HttpRequest,
-} from "https://deno.land/std@0.96.0/http/mod.ts#^";
+import { ServerRequest as HttpRequest } from "https://deno.land/std@0.96.0/http/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { UdpTrackerAction } from "../types.ts";

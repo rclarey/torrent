@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 /** An error thrown when a request times out */
 export class TimeoutError extends Error {
@@ -12,10 +12,7 @@ export function withTimeout<T>(
   timeout: number,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const to = setTimeout(
-      () => reject(new TimeoutError()),
-      timeout,
-    );
+    const to = setTimeout(() => reject(new TimeoutError()), timeout);
     func().then((r) => {
       clearTimeout(to);
       resolve(r);

@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import {
   AnnounceRequest,
@@ -58,9 +58,7 @@ interface FileInfo {
   peers: Map<string, PeerInfo>;
 }
 
-async function sweepAndDelete(
-  allFiles: Map<string, FileInfo>,
-): Promise<void> {
+async function sweepAndDelete(allFiles: Map<string, FileInfo>): Promise<void> {
   for (const fileInfo of allFiles.values()) {
     for (const [id, peer] of fileInfo.peers.entries()) {
       if (Date.now() - peer.lastUpdated > CLEANUP_INTERVAL) {
@@ -115,7 +113,8 @@ function handleAnnounce(
   } else {
     const newState = evaluateState(req);
     if (
-      requester.state === PeerState.leecher && newState === PeerState.seeder
+      requester.state === PeerState.leecher &&
+      newState === PeerState.seeder
     ) {
       fileInfo.incomplete -= 1;
       fileInfo.complete += 1;

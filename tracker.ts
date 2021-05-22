@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import { bdecode, bdecodeBytestringMap, Bencodeable } from "./bencode.ts";
 import {
@@ -28,10 +28,7 @@ const UDP_SCRAPE_LENGTH = 8;
 const UDP_ERROR_LENGTH = 9;
 const MAX_UDP_ATTEMPTS = 8;
 
-function timedFetch(
-  url: string,
-  init: RequestInit = {},
-): Promise<Response> {
+function timedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   return withTimeout(
     () => fetch(url, { ...init, cache: "no-store" }),
     FETCH_TIMEOUT,
@@ -117,7 +114,7 @@ export async function withConnect<T>(
         res = await withTimeout(async () => {
           await socket.send(connectBody, serverAddr);
           return (await socket.receive())[0];
-        }, 1000 * 15 * (2 ** retryAttempt));
+        }, 1000 * 15 * 2 ** retryAttempt);
       } catch {
         retryAttempt += 1;
         continue;
@@ -141,7 +138,7 @@ export async function withConnect<T>(
 
       // connection is valid for one minute
       connectionId = res.subarray(8, 16);
-      connTimer = setTimeout(() => connectionId = null, 1000 * 60);
+      connTimer = setTimeout(() => (connectionId = null), 1000 * 60);
     } else {
       reqBody.set(connectionId, 0);
       const transactionId = crypto.getRandomValues(reqBody.subarray(12, 16));
@@ -151,7 +148,7 @@ export async function withConnect<T>(
         res = await withTimeout(async () => {
           await socket.send(reqBody, serverAddr);
           return (await socket.receive())[0];
-        }, 1000 * 15 * (2 ** retryAttempt));
+        }, 1000 * 15 * 2 ** retryAttempt);
       } catch {
         retryAttempt += 1;
         continue;
@@ -185,33 +182,29 @@ function scrapeUdp(
     body.set(hash, 16 + 20 * i);
   }
 
-  return withConnect(
-    url,
-    body,
-    (result) => {
-      const action = readInt(result, 4, 0);
+  return withConnect(url, body, (result) => {
+    const action = readInt(result, 4, 0);
 
-      if (
-        result.length < UDP_SCRAPE_LENGTH ||
-        action !== UdpTrackerAction.scrape
-      ) {
-        throw deriveUdpError(action, result);
-      }
+    if (
+      result.length < UDP_SCRAPE_LENGTH ||
+      action !== UdpTrackerAction.scrape
+    ) {
+      throw deriveUdpError(action, result);
+    }
 
-      const nHashes = ((result.length - UDP_SCRAPE_LENGTH) / 12) | 0;
-      const list: ScrapeData[] = [];
-      for (const [i, infoHash] of infoHashes.slice(0, nHashes).entries()) {
-        list.push({
-          complete: readInt(result, 4, 8 + 12 * i),
-          downloaded: readInt(result, 4, 12 + 12 * i),
-          incomplete: readInt(result, 4, 16 + 12 * i),
-          infoHash,
-        });
-      }
+    const nHashes = ((result.length - UDP_SCRAPE_LENGTH) / 12) | 0;
+    const list: ScrapeData[] = [];
+    for (const [i, infoHash] of infoHashes.slice(0, nHashes).entries()) {
+      list.push({
+        complete: readInt(result, 4, 8 + 12 * i),
+        downloaded: readInt(result, 4, 12 + 12 * i),
+        incomplete: readInt(result, 4, 16 + 12 * i),
+        infoHash,
+      });
+    }
 
-      return list;
-    },
-  );
+    return list;
+  });
 }
 
 /**
@@ -275,11 +268,13 @@ const validateHttpAnnounce = obj({
   interval: num,
   peers: or(
     inst(Uint8Array),
-    arr(obj({
-      ip: inst(Uint8Array),
-      port: num,
-      "peer id": or(undef, inst(Uint8Array)),
-    })),
+    arr(
+      obj({
+        ip: inst(Uint8Array),
+        port: num,
+        "peer id": or(undef, inst(Uint8Array)),
+      }),
+    ),
   ),
 });
 
@@ -344,7 +339,7 @@ async function announceHttp(
   return parseHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
-const NEGATIVE_ONE = (2 ** 32) - 1;
+const NEGATIVE_ONE = 2 ** 32 - 1;
 
 function announceUdp(
   url: string,
@@ -371,31 +366,27 @@ function announceUdp(
   writeInt(info.numWant ?? NEGATIVE_ONE, body, 4, 92);
   writeInt(info.port, body, 2, 96);
 
-  return withConnect(
-    url,
-    body,
-    (result) => {
-      const action = readInt(result, 4, 0);
+  return withConnect(url, body, (result) => {
+    const action = readInt(result, 4, 0);
 
-      if (
-        result.length < UDP_ANNOUNCE_LENGTH ||
-        action !== UdpTrackerAction.announce
-      ) {
-        throw deriveUdpError(action, result);
-      }
+    if (
+      result.length < UDP_ANNOUNCE_LENGTH ||
+      action !== UdpTrackerAction.announce
+    ) {
+      throw deriveUdpError(action, result);
+    }
 
-      const interval = readInt(result, 4, 8);
-      const incomplete = readInt(result, 4, 12);
-      const complete = readInt(result, 4, 16);
-      const peers = readCompactPeers(result.subarray(20));
+    const interval = readInt(result, 4, 8);
+    const incomplete = readInt(result, 4, 12);
+    const complete = readInt(result, 4, 16);
+    const peers = readCompactPeers(result.subarray(20));
 
-      if (!peers) {
-        throw new Error("unknown peer format");
-      }
+    if (!peers) {
+      throw new Error("unknown peer format");
+    }
 
-      return { interval, complete, incomplete, peers };
-    },
-  );
+    return { interval, complete, incomplete, peers };
+  });
 }
 
 /** Make an announce request to the tracker URL */

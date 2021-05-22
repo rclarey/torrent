@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 // deno-lint-ignore no-empty-interface
 export interface BencodeableList extends Array<Bencodeable> {}

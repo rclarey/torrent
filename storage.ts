@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
@@ -87,7 +87,7 @@ class MultiFileStorage implements Storage {
     offset: number,
     bytes: Uint8Array,
     action: (file: Deno.File, arr: Uint8Array) => Promise<void>,
-    retry = false
+    retry = false,
   ): Promise<boolean> {
     const length = bytes.length;
     let f: Deno.File | null = null;
@@ -139,8 +139,10 @@ class MultiFileStorage implements Storage {
   }
 
   async set(offset: number, bytes: Uint8Array): Promise<boolean> {
-    return await this.findAndDo(offset, bytes, (file, arr) =>
-      writeAll(file, arr)
+    return await this.findAndDo(
+      offset,
+      bytes,
+      (file, arr) => writeAll(file, arr),
     );
   }
 

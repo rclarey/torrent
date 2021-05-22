@@ -1,4 +1,4 @@
-// Copyright (C) 2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import { withTimeout } from "./utils.ts";
 
@@ -19,7 +19,7 @@ const serverAddr = {
 const serviceName = "urn:schemas-upnp-org:service:WANIPConnection:1";
 const ctrlUrlPattern = new RegExp(
   `<serviceType>${serviceName}</serviceType>.*?<controlURL>(?<url>.*?)<\/controlURL>`,
-  "s"
+  "s",
 );
 const search = te.encode(
   "M-SEARCH * HTTP/1.1\r\n" +
@@ -27,7 +27,7 @@ const search = te.encode(
     "ST:urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n" +
     "MX:2\r\n" +
     'MAN:"ssdp:discover"\r\n' +
-    "\r\n"
+    "\r\n",
 );
 
 function getGatewayControlUrl(): Promise<string | null> {
@@ -61,7 +61,7 @@ function getGatewayControlUrl(): Promise<string | null> {
 function action(
   ctrlUrl: string,
   name: string,
-  args: Record<string, string | number>
+  args: Record<string, string | number>,
 ): Promise<Response> {
   return fetch(ctrlUrl, {
     method: "POST",
@@ -73,9 +73,11 @@ function action(
     <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
       <s:Body>
         <u:${name} xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:1">
-          ${Object.entries(args)
-            .map(([k, v]) => `<${k}>${v}</${k}>`)
-            .join("\n")}
+          ${
+      Object.entries(args)
+        .map(([k, v]) => `<${k}>${v}</${k}>`)
+        .join("\n")
+    }
         </u:${name}>
       </s:Body>
     </s:Envelope>`,
@@ -92,11 +94,11 @@ function getExternalIp(ctrlUrl: string): Promise<string | null> {
     }
 
     const match = (await res.text()).match(
-      /<NewExternalIPAddress>(?<ip>.*?)<\/NewExternalIPAddress>/
+      /<NewExternalIPAddress>(?<ip>.*?)<\/NewExternalIPAddress>/,
     );
     if (!match?.groups?.ip) {
       console.error(
-        "Failed to extract external IP address from gateway response"
+        "Failed to extract external IP address from gateway response",
       );
       return null;
     }
@@ -107,7 +109,7 @@ function getExternalIp(ctrlUrl: string): Promise<string | null> {
 function addPortMapping(
   ctrlUrl: string,
   internalIp: string,
-  port: number
+  port: number,
 ): Promise<boolean> {
   return withTimeout(async () => {
     const res = await action(ctrlUrl, "AddPortMapping", {
@@ -133,7 +135,7 @@ function addPortMapping(
 
 export async function getExternalIpAndMapPort(
   internalIp: string,
-  port: number
+  port: number,
 ): Promise<string | null> {
   try {
     const ctrlUrl = await getGatewayControlUrl();
