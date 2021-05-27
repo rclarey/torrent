@@ -4,7 +4,6 @@ import { equals } from "https://deno.land/std@0.96.0/bytes/mod.ts#^";
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
 import { readInt, readN, writeInt } from "./_bytes.ts";
-import { withTimeout } from "./utils.ts";
 
 export type Connection = Deno.Reader & Deno.Writer;
 
@@ -18,14 +17,10 @@ export enum MsgId {
   request = 6,
   piece = 7,
   cancel = 8,
-  disconnect = 9007199254740991, // max safe int
+  disconnect = Number.MAX_SAFE_INTEGER,
 }
 
-// 'BitTorrent protocol' as bytes
-// deno-fmt-ignore
-const HANDSHAKE_PSTR = Uint8Array.from([
-  66, 105, 116, 84, 111, 114, 114, 101, 110, 116, 32, 112, 114, 111, 116, 111, 99, 111, 108,
-]);
+const HANDSHAKE_PSTR = new TextEncoder().encode("BitTorrent protocol");
 
 // deno-fmt-ignore
 const HANDSHAKE_HEADER = [
@@ -33,7 +28,7 @@ const HANDSHAKE_HEADER = [
   19,
   ...HANDSHAKE_PSTR,
   // extension bytes
-  0, 0, 0, 0, 0, 0, 0, 0
+  0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
 export function sendHandshake(
@@ -48,24 +43,25 @@ export function sendHandshake(
   return writeAll(conn, msg);
 }
 
-export async function* receiveHandshake(
+export async function startReceiveHandshake(
   conn: Deno.Reader,
-): AsyncGenerator<Uint8Array, Uint8Array | null, never> {
-  try {
-    const length = (await readN(conn, 1))[0];
-    if (length !== 19) {
-      return null;
-    }
-    const pstr = await readN(conn, 19);
-    if (!equals(HANDSHAKE_PSTR, pstr)) {
-      return null;
-    }
-
-    yield readN(conn, 20);
-    return readN(conn, 20);
-  } catch {
-    return null;
+): Promise<Uint8Array> {
+  const length = (await readN(conn, 1))[0];
+  if (length !== 19) {
+    throw new Error("PSTR length in handshake is too short");
   }
+  const pstr = await readN(conn, 19);
+  if (!equals(HANDSHAKE_PSTR, pstr)) {
+    throw new Error('PSTR is not "BitTorrent protocol"');
+  }
+
+  return readN(conn, 20);
+}
+
+export async function endReceiveHandshake(
+  conn: Deno.Reader,
+): Promise<Uint8Array> {
+  return readN(conn, 20);
 }
 
 export function sendKeepAlive(conn: Deno.Writer): Promise<void> {
