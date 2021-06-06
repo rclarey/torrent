@@ -11,11 +11,10 @@ export function withTimeout<T>(
   func: () => Promise<T>,
   timeout: number,
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const to = setTimeout(() => reject(new TimeoutError()), timeout);
-    func().then((r) => {
-      clearTimeout(to);
-      resolve(r);
-    });
+    const result = await func();
+    clearTimeout(to);
+    resolve(result);
   });
 }

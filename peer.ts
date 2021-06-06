@@ -17,7 +17,8 @@ export enum MsgId {
   request = 6,
   piece = 7,
   cancel = 8,
-  disconnect = Number.MAX_SAFE_INTEGER,
+  // Number.MAX_SAFE_INTEGER as a literal
+  disconnect = 9007199254740991,
 }
 
 const HANDSHAKE_PSTR = new TextEncoder().encode("BitTorrent protocol");

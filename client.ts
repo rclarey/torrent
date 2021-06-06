@@ -5,9 +5,9 @@ import {
   endReceiveHandshake,
   sendHandshake,
   startReceiveHandshake,
-} from "./peer";
+} from "./peer.ts";
 import { createFileStorage, Storage } from "./storage.ts";
-import { getExternalIpAndMapPort } from "./upnp";
+import { getIpAddrsAndMapPort } from "./upnp.ts";
 
 export interface ClientConfig {
   storage?: (info: InfoDict, dir: string) => Storage;
@@ -30,37 +30,34 @@ function peerIdFromPrefix(prefix: string) {
 }
 
 export class Client {
-  listener: Deno.Listener;
+  listener!: Deno.Listener;
 
   infoHashes: Set<string> = new Set();
 
   peerId: Uint8Array;
 
-  externalIp: string | null = null;
+  internalIp!: string;
+
+  externalIp!: string;
 
   config: Required<ClientConfig>;
 
-  constructor(config: ClientConfig) {
+  constructor(config: ClientConfig = {}) {
     this.config = Object.assign(defaultClientConfig, config);
     this.peerId = peerIdFromPrefix(this.config.peerId);
   }
 
   async init() {
     this.listener = Deno.listen({ port: this.config.port });
+    const addr = this.listener.addr as Deno.NetAddr;
     // if config.port was 0, then we get a random free port so we should set
     // that to config.port so we can reference it later
-    if (this.listener.addr.port !== this.config.port) {
-      this.config.port = this.#listener.addr.port;
+    if (addr.port !== this.config.port) {
+      this.config.port = addr.port;
     }
 
-    // TODO: get internal IP from network interfaces when it is available
-    // https://github.com/denoland/deno/issues/8137
-    const internalIp = "192.168.0.104";
-
-    // TODO: what to do if this fails?
-    this.externalIp = await getExternalIpAndMapPort(
-      internalIp,
-      this.config.port
+    [this.internalIp, this.externalIp] = await getIpAddrsAndMapPort(
+      this.config.port,
     );
 
     this.acceptConnections();

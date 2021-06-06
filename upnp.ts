@@ -30,7 +30,7 @@ const search = te.encode(
     "\r\n",
 );
 
-function getGatewayControlUrl(): Promise<string | null> {
+function getGatewayControlUrl(): Promise<URL> {
   return withTimeout(async () => {
     const conn = Deno.listenDatagram(clientAddr);
     await conn.send(search, serverAddr);
@@ -40,8 +40,9 @@ function getGatewayControlUrl(): Promise<string | null> {
     const resStr = td.decode(searchRes);
     const locMatch = resStr.match(/location: (?<url>.*)/i);
     if (!locMatch?.groups?.url) {
-      console.error("Failed to extract description URL from gateway response");
-      return null;
+      throw new Error(
+        "UPnP: Failed to extract description URL from gateway response",
+      );
     }
 
     const baseUrl = new URL(locMatch.groups.url);
@@ -50,16 +51,17 @@ function getGatewayControlUrl(): Promise<string | null> {
     const desc = await (await fetch(baseUrl.toString())).text();
     const ctrlMatch = desc.match(ctrlUrlPattern);
     if (!ctrlMatch?.groups?.url) {
-      console.error("Failed to extract control URL from gateway response");
-      return null;
+      throw new Error(
+        "UPnp: Failed to extract control URL from gateway response",
+      );
     }
 
-    return new URL(ctrlMatch.groups.url, baseUrl).toString();
+    return new URL(ctrlMatch.groups.url, baseUrl);
   }, TIMEOUT);
 }
 
 function action(
-  ctrlUrl: string,
+  ctrlUrl: URL,
   name: string,
   args: Record<string, string | number>,
 ): Promise<Response> {
@@ -84,33 +86,46 @@ function action(
   });
 }
 
-function getExternalIp(ctrlUrl: string): Promise<string | null> {
+function getInternalIp(ctrlUrl: URL): Promise<string> {
+  return withTimeout(async () => {
+    console.log("connect:", ctrlUrl.hostname, ctrlUrl.port);
+    const conn = await Deno.connect({
+      hostname: ctrlUrl.hostname,
+      port: Number(ctrlUrl.port),
+    });
+    const internalIp = (conn.localAddr as Deno.NetAddr).hostname;
+    conn.close();
+    return internalIp;
+  }, TIMEOUT);
+}
+
+function getExternalIp(ctrlUrl: URL): Promise<string> {
   return withTimeout(async () => {
     const res = await action(ctrlUrl, "GetExternalIPAddress", {
       NewExternalIPAddress: "",
     });
     if (!res.ok) {
-      return null;
+      // TODO: parse SOAP error message
+      throw new Error(await res.text());
     }
 
     const match = (await res.text()).match(
       /<NewExternalIPAddress>(?<ip>.*?)<\/NewExternalIPAddress>/,
     );
     if (!match?.groups?.ip) {
-      console.error(
-        "Failed to extract external IP address from gateway response",
+      throw new Error(
+        "UPnP: Failed to extract external IP address from gateway response",
       );
-      return null;
     }
     return match.groups.ip;
   }, TIMEOUT);
 }
 
 function addPortMapping(
-  ctrlUrl: string,
+  ctrlUrl: URL,
   internalIp: string,
   port: number,
-): Promise<boolean> {
+): Promise<void> {
   return withTimeout(async () => {
     const res = await action(ctrlUrl, "AddPortMapping", {
       NewRemoteHost: "",
@@ -125,30 +140,21 @@ function addPortMapping(
     });
 
     if (!res.ok) {
-      console.error(await res.text());
-      return false;
+      // TODO: parse SOAP error message
+      throw new Error(await res.text());
     }
-
-    return true;
   }, TIMEOUT);
 }
 
-export async function getExternalIpAndMapPort(
-  internalIp: string,
+export async function getIpAddrsAndMapPort(
   port: number,
-): Promise<string | null> {
-  try {
-    const ctrlUrl = await getGatewayControlUrl();
-    if (!ctrlUrl) {
-      return null;
-    }
+): Promise<[string, string]> {
+  const ctrlUrl = await getGatewayControlUrl();
+  const internalIp = await getInternalIp(ctrlUrl);
+  const [externalIp] = await Promise.all([
+    getExternalIp(ctrlUrl),
+    addPortMapping(ctrlUrl, internalIp, port),
+  ]);
 
-    const externalIp = await getExternalIp(ctrlUrl);
-    const addedMapping = await addPortMapping(ctrlUrl, internalIp, port);
-
-    return externalIp && addedMapping ? externalIp : null;
-  } catch (e) {
-    console.log(e);
-    return null;
-  }
+  return [internalIp, externalIp];
 }
