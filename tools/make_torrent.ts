@@ -1,7 +1,7 @@
 // Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
-import { createHash } from "https://deno.land/std@0.96.0/hash/mod.ts#^";
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
+import { basename, join, relative, sep } from 'https://deno.land/x/std@0.98.0/path/mod.ts#^'
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";
@@ -10,17 +10,25 @@ import { readN } from "../_bytes.ts";
 let progress: (i: number, total: number) => void = () => {};
 
 // power of 2, where 32kB <= pieceLength <= 1MB
-function makePieceFields(size: number): [number, Uint8Array, number] {
+function makePieceFields(size: number) {
   const pieceLength = 2 **
     Math.min(20, Math.max(15, Math.floor(Math.log2(size / 1000))));
   const nPieces = Math.ceil(size / pieceLength);
   const pieceHashes = new Uint8Array(nPieces * 20);
-  return [pieceLength, pieceHashes, nPieces];
+
+  return {
+    pieceLength,
+    pieceHashes,
+    nPieces,
+    hashAndStore: async (content: Uint8Array, i: number) => {
+      const hash = await crypto.subtle.digest("SHA-1", content);
+      pieceHashes.set(new Uint8Array(hash), 20 * i);
+    },
+  };
 }
 
 async function collectFiles(
   initialDir: string,
-  nParts: number,
 ): Promise<[MultiFileFields[], number]> {
   const out: MultiFileFields[] = [];
   let size = 0;
@@ -29,13 +37,13 @@ async function collectFiles(
   while (dirs.length !== 0) {
     const dir = dirs.pop()!;
     for await (const entry of Deno.readDir(dir)) {
-      const path = `${dir}/${entry.name}`;
+      const path = join(dir, entry.name);
       const info = await Deno.stat(path);
       if (info.isDirectory) {
         dirs.push(path);
       } else {
         size += info.size;
-        out.push({ length: info.size, path: path.split("/").slice(nParts) });
+        out.push({ length: info.size, path: relative(initialDir, path).split(sep), });
       }
     }
   }
@@ -48,14 +56,18 @@ async function hashMultiFilePieces(
   files: MultiFileFields[],
   size: number,
 ): Promise<[Uint8Array, number]> {
-  const [pieceLength, pieceHashes, nPieces] = makePieceFields(size);
+  const { pieceLength, pieceHashes, nPieces, hashAndStore } = makePieceFields(
+    size,
+  );
+  console.log("using piece length", pieceLength);
   let content = new Uint8Array(pieceLength);
   let piece = 0;
   let contentOffset = 0;
 
   progress(0, nPieces);
+  const ps = new Array<Promise<void>>(nPieces);
   for (const file of files) {
-    const fd = await Deno.open(`${path}/${file.path.join("/")}`);
+    const fd = await Deno.open(join(path, ...file.path));
     let fileOffset = 0;
 
     while (fileOffset < file.length) {
@@ -73,8 +85,7 @@ async function hashMultiFilePieces(
       }
 
       await readN(fd, toRead, content.subarray(contentOffset));
-      const hash = createHash("sha1").update(content).digest();
-      pieceHashes.set(new Uint8Array(hash), 20 * piece);
+      ps[piece] = hashAndStore(content, piece);
 
       progress(piece, nPieces);
       piece += 1;
@@ -105,18 +116,18 @@ export async function makeTorrent(
     "creation date": Math.floor(Date.now() / 1000),
     encoding: "UTF-8",
   };
-  const parts = path!.split("/");
+  const name = basename(path);
   const info = await Deno.stat(path);
 
   if (info.isDirectory) {
-    const [files, size] = await collectFiles(path, parts.length);
+    const [files, size] = await collectFiles(path);
     const [pieces, pieceLength] = await hashMultiFilePieces(path, files, size);
 
     return bencode({
       ...common,
       info: {
         files: files as { path: string[]; length: number }[],
-        name: parts[parts.length - 1],
+        name,
         "piece length": pieceLength,
         pieces,
         private: 0,
@@ -124,25 +135,28 @@ export async function makeTorrent(
     });
   }
 
-  const [pieceLength, pieceHashes, nPieces] = makePieceFields(info.size);
+  const { pieceLength, pieceHashes, nPieces, hashAndStore } = makePieceFields(
+    info.size,
+  );
   console.log("using piece length", pieceLength);
   const fd = await Deno.open(path, { read: true });
 
+  const ps = new Array<Promise<void>>(nPieces);
   for (let i = 0; i < nPieces; i += 1) {
     progress(i, nPieces);
     const toRead = Math.min(pieceLength, info.size - pieceLength * i);
     const content = await readN(fd, toRead);
-    const hash = createHash("sha1").update(content).digest();
-    pieceHashes.set(new Uint8Array(hash), 20 * i);
+    ps[i] = hashAndStore(content, i);
   }
 
   fd.close();
+  await Promise.all(ps);
 
   return bencode({
     ...common,
     info: {
       length: info.size,
-      name: parts[parts.length - 1],
+      name,
       "piece length": pieceLength,
       pieces: pieceHashes,
       private: 0,
@@ -213,8 +227,7 @@ if (import.meta.main) {
     Deno.stdout.write(
       te.encode(`\rcomputing hash for piece ${n + 1} / ${total}`),
     );
-  const parts = path!.split("/");
-  const name = parts[parts.length - 1];
+  const name = basename(path!);
 
   console.log(`making .torrent file for ${name}`);
   const data = await makeTorrent(path!, tracker!, comment);
