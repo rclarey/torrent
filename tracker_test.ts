@@ -14,7 +14,10 @@ async function httpAnnounceFullServer() {
   const { value: req } = await s[Symbol.asyncIterator]().next();
   assertEquals(
     req.url,
-    "/?compact=1&info_hash=abcdefghijklmnopqrst&peer_id=ABCDEFGHIJKLMNOPQRST&ip=192.168.0.30&port=6883&uploaded=1&downloaded=2&left=3&event=empty&numwant=50",
+    "/?compact=1" + "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
+      "&peer_id=ABCDEFGHIJKLMNOPQRST" + "&ip=192.168.0.30" + "&port=6883" +
+      "&uploaded=1" + "&downloaded=2" + "&left=3" + "&event=empty" +
+      "&numwant=50",
   );
   await req.respond({
     body: te.encode(
@@ -47,7 +50,10 @@ async function httpAnnounceCompactServer() {
   const { value: req } = await s[Symbol.asyncIterator]().next();
   assertEquals(
     req.url,
-    "/?compact=1&info_hash=abcdefghijklmnopqrst&peer_id=ABCDEFGHIJKLMNOPQRST&ip=192.168.0.30&port=6883&uploaded=1&downloaded=2&left=3&event=empty&numwant=50",
+    "/?compact=1" + "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
+      "&peer_id=ABCDEFGHIJKLMNOPQRST" + "&ip=192.168.0.30" + "&port=6883" +
+      "&uploaded=1" + "&downloaded=2" + "&left=3" + "&event=empty" +
+      "&numwant=50",
   );
   await req.respond({
     body: Uint8Array.from([
@@ -196,7 +202,7 @@ Deno.test("HTTP Tracker - announce() - full", async () => {
   const s = httpAnnounceFullServer();
 
   const res = await announce("http://127.0.0.1:3000", {
-    infoHash: new Uint8Array(20).map((_, i) => 97 + i),
+    infoHash: new Uint8Array(20).map((_, i) => 255 - i),
     peerId: new Uint8Array(20).map((_, i) => 65 + i),
     ip: "192.168.0.30",
     port: 6883,
@@ -224,7 +230,7 @@ Deno.test("HTTP Tracker - announce() - compact", async () => {
   const s = httpAnnounceCompactServer();
 
   const res = await announce("http://127.0.0.1:3000", {
-    infoHash: new Uint8Array(20).map((_, i) => 97 + i),
+    infoHash: new Uint8Array(20).map((_, i) => 255 - i),
     peerId: new Uint8Array(20).map((_, i) => 65 + i),
     ip: "192.168.0.30",
     port: 6883,

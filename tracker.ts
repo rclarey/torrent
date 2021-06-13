@@ -95,7 +95,7 @@ export async function withConnect<T>(
     port: Number(match[2]),
     transport: "udp",
   };
-  const socket = Deno.listenDatagram({ port: 6961, transport: "udp" });
+  const socket = Deno.listenDatagram({ port: 6961, transport: "udp", hostname: '0.0.0.0' });
   let retryAttempt = 0;
   let connectionId: Uint8Array | null = null;
   let connTimer: number | undefined;
@@ -318,11 +318,21 @@ function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
   };
 }
 
+function makeUrl(base: string, params: Record<string, string>): string {
+  let url = base;
+  let prefix = '?';
+  for (const [key, value] of Object.entries(params)) {
+    url += `${prefix}${key}=${value}`;
+    prefix = '&';
+  }
+  return url;
+}
+
 async function announceHttp(
-  url: string,
+  baseUrl: string,
   info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
-  const params = new URLSearchParams({
+  const url = makeUrl(baseUrl, {
     compact: CompactValue.compact,
     info_hash: encodeBinaryData(info.infoHash),
     peer_id: encodeBinaryData(info.peerId),
@@ -335,7 +345,7 @@ async function announceHttp(
     numwant: info.numWant?.toString() ?? "50",
   });
 
-  const res = await timedFetch(`${url}?${params}`);
+  const res = await timedFetch(url);
   return parseHttpAnnounce(new Uint8Array(await res.arrayBuffer()));
 }
 
