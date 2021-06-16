@@ -1,6 +1,6 @@
 // Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
-import { InfoDict } from "./metainfo.ts";
+import { InfoDict, Metainfo } from "./metainfo.ts";
 import {
   endReceiveHandshake,
   sendHandshake,
@@ -8,6 +8,7 @@ import {
 } from "./peer.ts";
 import { createFileStorage, Storage } from "./storage.ts";
 import { getIpAddrsAndMapPort } from "./upnp.ts";
+import { Torrent } from "./torrent.ts";
 
 export interface ClientConfig {
   storage?: (info: InfoDict, dir: string) => Storage;
@@ -32,7 +33,7 @@ function peerIdFromPrefix(prefix: string) {
 export class Client {
   listener!: Deno.Listener;
 
-  infoHashes: Set<string> = new Set();
+  torrents: Map<string, Torrent> = new Map();
 
   peerId: Uint8Array;
 
@@ -45,6 +46,22 @@ export class Client {
   constructor(config: ClientConfig = {}) {
     this.config = Object.assign(defaultClientConfig, config);
     this.peerId = peerIdFromPrefix(this.config.peerId);
+  }
+
+  add(metainfo: Metainfo, dir: string): void {
+    const hashStr = metainfo.infoHash.toString();
+    if (!this.torrents.has(hashStr)) {
+      this.torrents.set(
+        hashStr,
+        new Torrent({
+          ip: this.externalIp,
+          metainfo,
+          peerId: this.peerId,
+          port: this.config.port,
+          storage: this.config.storage(metainfo.info, dir),
+        }),
+      );
+    }
   }
 
   async init() {
@@ -67,7 +84,7 @@ export class Client {
     for await (const conn of this.listener) {
       try {
         const infoHash = await startReceiveHandshake(conn);
-        if (!this.infoHashes.has(infoHash.toString())) {
+        if (!this.torrents.has(infoHash.toString())) {
           conn.close();
           continue;
         }
@@ -79,7 +96,6 @@ export class Client {
       } catch (e) {
         console.error(e);
         conn.close();
-        continue;
       }
     }
   }

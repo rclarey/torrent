@@ -2,6 +2,15 @@
 
 import { bdecode, bdecodeBytestringMap, Bencodeable } from "./bencode.ts";
 import {
+  FETCH_TIMEOUT,
+  UDP_ANNOUNCE_RES_LENGTH,
+  UDP_CONNECT_LENGTH,
+  UDP_CONNECT_MAGIC,
+  UDP_ERROR_LENGTH,
+  UDP_MAX_ATTEMPTS,
+  UDP_SCRAPE_RES_LENGTH,
+} from "./constants.ts";
+import {
   AnnounceEvent,
   AnnounceInfo,
   CompactValue,
@@ -14,19 +23,11 @@ import {
   encodeBinaryData,
   equals,
   readInt,
-  writeBigInt,
   writeInt,
 } from "./_bytes.ts";
 import { arr, inst, num, obj, or, undef } from "./valid.ts";
 import { withTimeout } from "./utils.ts";
 
-const FETCH_TIMEOUT = 1000 * 10;
-const UDP_CONNECT_MAGIC = 0x41727101980n;
-const UDP_CONNECT_LENGTH = 16;
-const UDP_ANNOUNCE_LENGTH = 20;
-const UDP_SCRAPE_LENGTH = 8;
-const UDP_ERROR_LENGTH = 9;
-const MAX_UDP_ATTEMPTS = 8;
 
 function timedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   return withTimeout(
@@ -95,15 +96,19 @@ export async function withConnect<T>(
     port: Number(match[2]),
     transport: "udp",
   };
-  const socket = Deno.listenDatagram({ port: 6961, transport: "udp", hostname: '0.0.0.0' });
+  const socket = Deno.listenDatagram({
+    port: 6961,
+    transport: "udp",
+    hostname: "0.0.0.0",
+  });
   let retryAttempt = 0;
   let connectionId: Uint8Array | null = null;
   let connTimer: number | undefined;
 
-  while (retryAttempt < MAX_UDP_ATTEMPTS) {
+  while (retryAttempt < UDP_MAX_ATTEMPTS) {
     if (connectionId === null) {
       const connectBody = new Uint8Array(16);
-      writeBigInt(UDP_CONNECT_MAGIC, connectBody, 8, 0);
+      connectBody.set(UDP_CONNECT_MAGIC, 0);
       writeInt(UdpTrackerAction.connect, connectBody, 4, 8);
       const transactionId = crypto.getRandomValues(
         connectBody.subarray(12, 16),
@@ -186,13 +191,13 @@ function scrapeUdp(
     const action = readInt(result, 4, 0);
 
     if (
-      result.length < UDP_SCRAPE_LENGTH ||
+      result.length < UDP_SCRAPE_RES_LENGTH ||
       action !== UdpTrackerAction.scrape
     ) {
       throw deriveUdpError(action, result);
     }
 
-    const nHashes = ((result.length - UDP_SCRAPE_LENGTH) / 12) | 0;
+    const nHashes = ((result.length - UDP_SCRAPE_RES_LENGTH) / 12) | 0;
     const list: ScrapeData[] = [];
     for (const [i, infoHash] of infoHashes.slice(0, nHashes).entries()) {
       list.push({
@@ -320,10 +325,10 @@ function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
 
 function makeUrl(base: string, params: Record<string, string>): string {
   let url = base;
-  let prefix = '?';
+  let prefix = "?";
   for (const [key, value] of Object.entries(params)) {
     url += `${prefix}${key}=${value}`;
-    prefix = '&';
+    prefix = "&";
   }
   return url;
 }
@@ -364,9 +369,9 @@ function announceUdp(
   writeInt(UdpTrackerAction.announce, body, 4, 8);
   body.set(info.infoHash, 16);
   body.set(info.peerId, 36);
-  writeBigInt(info.downloaded, body, 8, 56);
-  writeBigInt(info.left, body, 8, 64);
-  writeBigInt(info.uploaded, body, 8, 72);
+  writeInt(info.downloaded, body, 8, 56);
+  writeInt(info.left, body, 8, 64);
+  writeInt(info.uploaded, body, 8, 72);
   writeInt(UDP_EVENT_MAP.indexOf(info.event), body, 4, 80);
   body.set(ipParts, 84);
   if (info.key) {
@@ -380,7 +385,7 @@ function announceUdp(
     const action = readInt(result, 4, 0);
 
     if (
-      result.length < UDP_ANNOUNCE_LENGTH ||
+      result.length < UDP_ANNOUNCE_RES_LENGTH ||
       action !== UdpTrackerAction.announce
     ) {
       throw deriveUdpError(action, result);

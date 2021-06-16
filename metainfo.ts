@@ -1,6 +1,6 @@
 // Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
-import { bdecode } from "./bencode.ts";
+import { bdecode, bencode } from "./bencode.ts";
 import { arr, inst, num, obj, or, undef } from "./valid.ts";
 import { partition } from "./_bytes.ts";
 
@@ -41,7 +41,9 @@ export interface MultiFileInfoDict extends CommonInfoDict {
 
 export type InfoDict = SingleFileInfoDict | MultiFileInfoDict;
 
-export interface MetaInfo {
+export interface Metainfo {
+  /** SHA-1 hash of the `info` field bencoded */
+  infoHash: Uint8Array;
   info: InfoDict;
   /** the announce URL of the tracker */
   announce: string;
@@ -76,7 +78,7 @@ const validateMultiFileInfo = obj({
   ),
 });
 
-const validateMetaInfo = obj({
+const validateMetainfo = obj({
   info: or(validateSingleFileInfo, validateMultiFileInfo),
   announce: inst(Uint8Array),
   "creation date": or(undef, num),
@@ -93,41 +95,45 @@ function decodeIfDef(str?: Uint8Array): string | undefined {
 /**
  * parse and validate a bencoded metainfo file, returning null if it is invalid
  */
-export function parseMetaInfo(bytes: Uint8Array): MetaInfo | null {
+export async function parseMetainfo(bytes: Uint8Array): Promise<Metainfo | null> {
   try {
-    const meta = bdecode(bytes);
-    if (!validateMetaInfo(meta)) {
+    const decoded = bdecode(bytes);
+    if (!validateMetainfo(decoded)) {
       return null;
     }
 
-    const common = {
-      announce: td.decode(meta.announce),
-      creationDate: meta["creation date"],
-      comment: decodeIfDef(meta.comment),
-      createdBy: decodeIfDef(meta["created by"]),
-      encoding: decodeIfDef(meta.encoding),
-    };
     const commonInfo = {
-      pieceLength: meta.info["piece length"],
-      pieces: partition(meta.info.pieces, 20),
-      private: meta.info.private === 1 ? 1 : 0,
-      name: td.decode(meta.info.name),
+      pieceLength: decoded.info["piece length"],
+      pieces: partition(decoded.info.pieces, 20),
+      private: decoded.info.private === 1 ? 1 : 0,
+      name: td.decode(decoded.info.name),
     };
 
-    if ("files" in meta.info) {
-      return {
-        ...common,
-        info: {
+    let info: InfoDict;
+    if ("files" in decoded.info) {
+      info = {
           ...commonInfo,
-          files: meta.info.files.map((file) => ({
+          files: decoded.info.files.map((file) => ({
             length: file.length,
             path: file.path.map((x) => td.decode(x)),
           })),
-        },
-      };
+        };
+    } else {
+      info = {
+        ...commonInfo,
+        length: decoded.info.length,
+      }
     }
-
-    return { ...common, info: { ...commonInfo, length: meta.info.length } };
+    
+    return {
+      announce: td.decode(decoded.announce),
+      creationDate: decoded["creation date"],
+      comment: decodeIfDef(decoded.comment),
+      createdBy: decodeIfDef(decoded["created by"]),
+      encoding: decodeIfDef(decoded.encoding),
+      info,
+      infoHash: new Uint8Array(await crypto.subtle.digest('SHA-1', bencode(decoded.info))),
+    };
   } catch {
     return null;
   }

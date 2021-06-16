@@ -206,9 +206,9 @@ Deno.test("HTTP Tracker - announce() - full", async () => {
     peerId: new Uint8Array(20).map((_, i) => 65 + i),
     ip: "192.168.0.30",
     port: 6883,
-    uploaded: 1n,
-    downloaded: 2n,
-    left: 3n,
+    uploaded: 1,
+    downloaded: 2,
+    left: 3,
     event: AnnounceEvent.empty,
   });
   assertEquals(res, {
@@ -234,9 +234,9 @@ Deno.test("HTTP Tracker - announce() - compact", async () => {
     peerId: new Uint8Array(20).map((_, i) => 65 + i),
     ip: "192.168.0.30",
     port: 6883,
-    uploaded: 1n,
-    downloaded: 2n,
-    left: 3n,
+    uploaded: 1,
+    downloaded: 2,
+    left: 3,
     event: AnnounceEvent.empty,
   });
   assertEquals(res, {
@@ -262,9 +262,9 @@ Deno.test("HTTP Tracker - announce() - bad response", async () => {
       peerId: new Uint8Array(20).map((_, i) => 65 + i),
       ip: "192.168.0.30",
       port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
+      uploaded: 1,
+      downloaded: 2,
+      left: 3,
       event: AnnounceEvent.empty,
     });
   };
@@ -282,9 +282,9 @@ Deno.test("HTTP Tracker - announce() - failure reason", async () => {
       peerId: new Uint8Array(20).map((_, i) => 65 + i),
       ip: "192.168.0.30",
       port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
+      uploaded: 1,
+      downloaded: 2,
+      left: 3,
       event: AnnounceEvent.empty,
     });
   };
@@ -358,9 +358,9 @@ Deno.test("UDP Tracker - announce() - ok", async () => {
     peerId: new Uint8Array(20).map((_, i) => 65 + i),
     ip: "192.168.0.30",
     port: 6883,
-    uploaded: 1n,
-    downloaded: 2n,
-    left: 3n,
+    uploaded: 1,
+    downloaded: 2,
+    left: 3,
     event: AnnounceEvent.empty,
   });
   assertEquals(res, {
@@ -386,9 +386,9 @@ Deno.test("UDP Tracker - announce() - bad response", async () => {
       peerId: new Uint8Array(20).map((_, i) => 65 + i),
       ip: "192.168.0.30",
       port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
+      uploaded: 1,
+      downloaded: 2,
+      left: 3,
       event: AnnounceEvent.empty,
     });
   };
@@ -406,9 +406,9 @@ Deno.test("UDP Tracker - announce() - failure reason", async () => {
       peerId: new Uint8Array(20).map((_, i) => 65 + i),
       ip: "192.168.0.30",
       port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
+      uploaded: 1,
+      downloaded: 2,
+      left: 3,
       event: AnnounceEvent.empty,
     });
   };
@@ -481,9 +481,9 @@ Deno.test("Unknown Tracker - announce()", async () => {
       peerId: new Uint8Array(20).map((_, i) => 65 + i),
       ip: "192.168.0.30",
       port: 6883,
-      uploaded: 1n,
-      downloaded: 2n,
-      left: 3n,
+      uploaded: 1,
+      downloaded: 2,
+      left: 3,
       event: AnnounceEvent.empty,
     });
   };

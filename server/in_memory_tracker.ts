@@ -21,7 +21,7 @@ interface PeerInfo extends BasePeerInfo {
 }
 
 function evaluateState(req: AnnounceRequest): PeerState {
-  if (req.event === AnnounceEvent.completed || req.left === 0n) {
+  if (req.event === AnnounceEvent.completed || req.left === 0) {
     return PeerState.seeder;
   }
   return PeerState.leecher;

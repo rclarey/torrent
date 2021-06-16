@@ -34,19 +34,6 @@ export function readInt(
   return n;
 }
 
-export function readBigInt(
-  arr: Uint8Array,
-  nBytes: number,
-  offset: number,
-): bigint {
-  let n = 0n;
-  for (const byte of arr.subarray(offset, offset + nBytes)) {
-    n <<= 8n;
-    n += BigInt(byte);
-  }
-  return n;
-}
-
 export function writeInt(
   n: number,
   arr: Uint8Array,
@@ -63,27 +50,6 @@ export function writeInt(
   while (ind >= offset) {
     const byte = remaining % 256;
     remaining = (remaining / 256) | 0;
-    arr[ind] = byte;
-    ind -= 1;
-  }
-}
-
-export function writeBigInt(
-  n: bigint,
-  arr: Uint8Array,
-  nBytes: number,
-  offset: number,
-): void {
-  if (nBytes + offset > arr.length) {
-    throw new Error(
-      `attempt to write ${nBytes} bytes with offset ${offset}, but array only has length ${arr.length}`,
-    );
-  }
-  let remaining = n;
-  let ind = offset + nBytes - 1;
-  while (ind >= offset) {
-    const byte = Number(remaining % 256n);
-    remaining = remaining / 256n;
     arr[ind] = byte;
     ind -= 1;
   }

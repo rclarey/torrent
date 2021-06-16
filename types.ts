@@ -48,11 +48,11 @@ export interface AnnounceInfo {
   /** The port at which the client is listening */
   port: number;
   /** Number of bytes uploaded */
-  uploaded: bigint;
+  uploaded: number;
   /** Number of bytes downloaded */
-  downloaded: bigint;
+  downloaded: number;
   /** Number of bytes the client still has to download */
-  left: bigint;
+  left: number;
   /** Indicates the purpose of the request */
   event: AnnounceEvent;
   /** Number of peers that the client would like to receive from the tracker */

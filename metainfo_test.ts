@@ -4,13 +4,13 @@ import {
 } from "https://deno.land/std@0.96.0/testing/asserts.ts#^";
 import {
   MultiFileInfoDict,
-  parseMetaInfo,
+  parseMetainfo,
   SingleFileInfoDict,
 } from "./metainfo.ts";
 
-Deno.test("MetaInfo - parseMetaInfo() - single file", async () => {
+Deno.test("Metainfo - parseMetainfo() - single file", async () => {
   const file = await Deno.readFile("./test_data/singlefile.torrent");
-  const metainfo = parseMetaInfo(file);
+  const metainfo = await parseMetainfo(file);
 
   assertNotEquals(metainfo, null);
   assertEquals(metainfo!.comment, "comment");
@@ -30,9 +30,9 @@ Deno.test("MetaInfo - parseMetaInfo() - single file", async () => {
   assertEquals(info.private, 0);
 });
 
-Deno.test("MetaInfo - parseMetaInfo() - multi file", async () => {
+Deno.test("Metainfo - parseMetainfo() - multi file", async () => {
   const file = await Deno.readFile("./test_data/multifile.torrent");
-  const metainfo = parseMetaInfo(file);
+  const metainfo = await parseMetainfo(file);
 
   assertNotEquals(metainfo, null);
   assertEquals(metainfo!.comment, "comment");
@@ -58,9 +58,9 @@ Deno.test("MetaInfo - parseMetaInfo() - multi file", async () => {
   assertEquals(file2.path.join("/"), "dir/file2.txt");
 });
 
-Deno.test("MetaInfo - parseMetaInfo() - minimal fields", async () => {
+Deno.test("Metainfo - parseMetainfo() - minimal fields", async () => {
   const file = await Deno.readFile("./test_data/minimal.torrent");
-  const metainfo = parseMetaInfo(file);
+  const metainfo = await parseMetainfo(file);
 
   assertNotEquals(metainfo, null);
   assertEquals(metainfo!.comment, undefined);
@@ -82,9 +82,9 @@ Deno.test("MetaInfo - parseMetaInfo() - minimal fields", async () => {
   assertEquals(info.private, 0);
 });
 
-Deno.test("MetaInfo - parseMetaInfo() - extra fields", async () => {
+Deno.test("Metainfo - parseMetainfo() - extra fields", async () => {
   const file = await Deno.readFile("./test_data/extra.torrent");
-  const metainfo = parseMetaInfo(file);
+  const metainfo = await parseMetainfo(file);
 
   assertNotEquals(metainfo, null);
   assertEquals(metainfo!.comment, "comment");
@@ -104,8 +104,8 @@ Deno.test("MetaInfo - parseMetaInfo() - extra fields", async () => {
   assertEquals(info.private, 0);
 });
 
-Deno.test("MetaInfo - parseMetaInfo() - missing fields", async () => {
+Deno.test("Metainfo - parseMetainfo() - missing fields", async () => {
   const file = await Deno.readFile("./test_data/missing.torrent");
-  const metainfo = parseMetaInfo(file);
+  const metainfo = await parseMetainfo(file);
   assertEquals(metainfo, null);
 });

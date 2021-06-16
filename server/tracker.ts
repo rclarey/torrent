@@ -19,16 +19,17 @@ import {
   UdpTrackerAction,
 } from "../types.ts";
 import { bencode } from "../bencode.ts";
+import {
+  UDP_CONNECT_MAGIC,
+  ANNOUNCE_DEFAULT_INTERVAL,
+  ANNOUNCE_DEFAULT_WANT,
+  UDP_ANNOUNCE_REQ_LENGTH,
+  UDP_CONNECT_LENGTH,
+  UDP_SCRAPE_REQ_LENGTH,
+} from "../constants.ts";
 import { sendHttpError, sendUdpError } from "./_helpers.ts";
-import { decodeBinaryData, readBigInt, readInt, writeInt } from "../_bytes.ts";
+import { decodeBinaryData, readInt, writeInt } from "../_bytes.ts";
 
-const CONNECT_MAGIC = 0x41727101980n;
-const DEFAULT_WANT = 50;
-const DEFAULT_INTERVAL = 600; // 10min
-
-const UDP_CONNECT_LENGTH = 16;
-const UDP_ANNOUNCE_LENGTH = 98;
-const UDP_SCRAPE_LENGTH = 16;
 
 export abstract class AnnounceRequest implements AnnounceInfo {
   /** SHA1 hash of the bencoded info dictionary */
@@ -40,11 +41,11 @@ export abstract class AnnounceRequest implements AnnounceInfo {
   /** The port at which the client is listening */
   port!: number;
   /** Number of bytes uploaded */
-  uploaded!: bigint;
+  uploaded!: number;
   /** Number of bytes downloaded */
-  downloaded!: bigint;
+  downloaded!: number;
   /** Number of bytes the client still has to download */
-  left!: bigint;
+  left!: number;
   /** Indicates the purpose of the request */
   event!: AnnounceEvent;
   /** Number of peers that the client would like to receive from the tracker */
@@ -384,10 +385,10 @@ function validateAnnounceParams({
     infoHash: infoHashes[0],
     ip: params.get("ip") ?? ip,
     port: Number(params.get("port")!),
-    uploaded: BigInt(params.get("uploaded")!),
-    downloaded: BigInt(params.get("downloaded")!),
-    left: BigInt(params.get("left")!),
-    event: maybeEvent && ![...Object.keys(AnnounceEvent)].includes(maybeEvent)
+    uploaded: Number(params.get("uploaded")!),
+    downloaded: Number(params.get("downloaded")!),
+    left: Number(params.get("left")!),
+    event: maybeEvent && Object.keys(AnnounceEvent).includes(maybeEvent)
       ? (maybeEvent as AnnounceEvent)
       : AnnounceEvent.empty,
     numWant: maybeNumWant !== null ? Number(maybeNumWant) : undefined,
@@ -415,7 +416,7 @@ export interface ServerParams {
 
 export class TrackerServer implements AsyncIterable<TrackerRequest> {
   /** Set of connection IDs currently in use by UDP connections */
-  connectionIds: Set<bigint>;
+  connectionIds = new Set<string>();
   /** Number of seconds to advise clients wait between regular requests */
   interval!: number;
   /** List of allowed info hashes. If undefined then accept all incoming info hashes */
@@ -426,7 +427,6 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
   udpConn?: Deno.DatagramConn;
 
   constructor(params: ServerParams) {
-    this.connectionIds = new Set<bigint>();
     Object.assign(this, params);
   }
 
@@ -471,7 +471,7 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             interval: this.interval,
             ...valid,
             compact: valid.compact ?? CompactValue.full,
-            numWant: valid.numWant ?? DEFAULT_WANT,
+            numWant: valid.numWant ?? ANNOUNCE_DEFAULT_WANT,
           });
         } else if (match[1] === "scrape") {
           yield new HttpScrapeRequest(httpRequest, parsed.infoHashes);
@@ -491,13 +491,13 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
     while (true) {
       try {
         const [data, addr] = await this.udpConn!.receive();
-        const frontMatter = readBigInt(data, 8, 0);
+        const frontMatter = data.subarray(0, 8);
         const action = readInt(data, 4, 8);
 
         // if frontMatter === magic, then its a connect request
         // otherwise it's the announce request
         if (
-          frontMatter === CONNECT_MAGIC &&
+          equals(frontMatter, UDP_CONNECT_MAGIC) &&
           action === UdpTrackerAction.connect
         ) {
           const transactionId = data.subarray(12, 16);
@@ -511,10 +511,10 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
           }
 
           const connectionId = crypto.getRandomValues(new Uint8Array(8));
-          const numConnId = readBigInt(connectionId, 8, 0);
-          this.connectionIds.add(numConnId);
+          const strConnId = connectionId.toString();
+          this.connectionIds.add(strConnId);
           // remove id as valid after 2 min
-          setTimeout(() => this.connectionIds.delete(numConnId), 120000);
+          setTimeout(() => this.connectionIds.delete(strConnId), 120000);
 
           const body = new Uint8Array(16);
           writeInt(UdpTrackerAction.connect, body, 4, 0);
@@ -525,14 +525,14 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
         }
 
         const connectionId = data.subarray(0, 8);
-        if (!this.connectionIds.has(readBigInt(connectionId, 8, 0))) {
+        if (!this.connectionIds.has(connectionId.toString())) {
           // ignore
           continue;
         }
 
         const transactionId = data.subarray(12, 16);
         if (action === UdpTrackerAction.announce) {
-          if (data.length < UDP_ANNOUNCE_LENGTH) {
+          if (data.length < UDP_ANNOUNCE_REQ_LENGTH) {
             sendUdpError(
               this.udpConn!,
               addr,
@@ -559,17 +559,17 @@ export class TrackerServer implements AsyncIterable<TrackerRequest> {
             interval: this.interval,
             conn: this.udpConn!,
             peerId: data.subarray(36, 56),
-            downloaded: readBigInt(data, 8, 56),
-            left: readBigInt(data, 8, 64),
-            uploaded: readBigInt(data, 8, 72),
+            downloaded: readInt(data, 8, 56),
+            left: readInt(data, 8, 64),
+            uploaded: readInt(data, 8, 72),
             event: UDP_EVENT_MAP[readInt(data, 4, 80)],
             ip: Array.from(data.subarray(84, 88)).map(String).join("."),
             key: data.subarray(88, 92),
-            numWant: Math.min(DEFAULT_WANT, readInt(data, 4, 92)),
+            numWant: Math.min(ANNOUNCE_DEFAULT_WANT, readInt(data, 4, 92)),
             port: readInt(data, 4, 96),
           });
         } else if (action === UdpTrackerAction.scrape) {
-          if (data.length < UDP_SCRAPE_LENGTH) {
+          if (data.length < UDP_SCRAPE_REQ_LENGTH) {
             sendUdpError(
               this.udpConn!,
               addr,
@@ -648,7 +648,7 @@ export function serveTracker(opts: ServeOptions = {}): TrackerServer {
     httpServer,
     udpConn,
     filterList: opts.filterList,
-    interval: opts.interval ?? DEFAULT_INTERVAL,
+    interval: opts.interval ?? ANNOUNCE_DEFAULT_INTERVAL,
   });
 
   return server;
