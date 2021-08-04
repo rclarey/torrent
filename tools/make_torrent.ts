@@ -100,6 +100,7 @@ async function hashMultiFilePieces(
     fd.close();
   }
 
+  await Promise.all(ps);
   return [pieceHashes, pieceLength];
 }
 
