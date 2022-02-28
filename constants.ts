@@ -12,6 +12,7 @@ export const UDP_SCRAPE_RES_LENGTH = 8;
 export const UDP_CONNECT_LENGTH = 16;
 export const UDP_ERROR_LENGTH = 9;
 export const UDP_MAX_ATTEMPTS = 8;
+// deno-fmt-ignore
 export const UDP_CONNECT_MAGIC = Uint8Array.from([0, 0, 0, 23, 39, 16, 25, 128]);
 
 export const FETCH_TIMEOUT = 1000 * 10;

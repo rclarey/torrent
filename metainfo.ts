@@ -95,7 +95,9 @@ function decodeIfDef(str?: Uint8Array): string | undefined {
 /**
  * parse and validate a bencoded metainfo file, returning null if it is invalid
  */
-export async function parseMetainfo(bytes: Uint8Array): Promise<Metainfo | null> {
+export async function parseMetainfo(
+  bytes: Uint8Array,
+): Promise<Metainfo | null> {
   try {
     const decoded = bdecode(bytes);
     if (!validateMetainfo(decoded)) {
@@ -112,19 +114,19 @@ export async function parseMetainfo(bytes: Uint8Array): Promise<Metainfo | null>
     let info: InfoDict;
     if ("files" in decoded.info) {
       info = {
-          ...commonInfo,
-          files: decoded.info.files.map((file) => ({
-            length: file.length,
-            path: file.path.map((x) => td.decode(x)),
-          })),
-        };
+        ...commonInfo,
+        files: decoded.info.files.map((file) => ({
+          length: file.length,
+          path: file.path.map((x) => td.decode(x)),
+        })),
+      };
     } else {
       info = {
         ...commonInfo,
         length: decoded.info.length,
-      }
+      };
     }
-    
+
     return {
       announce: td.decode(decoded.announce),
       creationDate: decoded["creation date"],
@@ -132,7 +134,9 @@ export async function parseMetainfo(bytes: Uint8Array): Promise<Metainfo | null>
       createdBy: decodeIfDef(decoded["created by"]),
       encoding: decodeIfDef(decoded.encoding),
       info,
-      infoHash: new Uint8Array(await crypto.subtle.digest('SHA-1', bencode(decoded.info))),
+      infoHash: new Uint8Array(
+        await crypto.subtle.digest("SHA-1", bencode(decoded.info)),
+      ),
     };
   } catch {
     return null;

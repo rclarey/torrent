@@ -11,25 +11,24 @@ import { equals } from "https://deno.land/std@0.96.0/bytes/mod.ts#^";
 import {
   AnnounceEvent,
   AnnounceInfo,
+  AnnouncePeerInfo,
+  AnnouncePeerState,
   CompactValue,
-  PeerInfo,
-  PeerState,
   ScrapeData,
   UDP_EVENT_MAP,
   UdpTrackerAction,
 } from "../types.ts";
 import { bencode } from "../bencode.ts";
 import {
-  UDP_CONNECT_MAGIC,
   ANNOUNCE_DEFAULT_INTERVAL,
   ANNOUNCE_DEFAULT_WANT,
   UDP_ANNOUNCE_REQ_LENGTH,
   UDP_CONNECT_LENGTH,
+  UDP_CONNECT_MAGIC,
   UDP_SCRAPE_REQ_LENGTH,
 } from "../constants.ts";
 import { sendHttpError, sendUdpError } from "./_helpers.ts";
 import { decodeBinaryData, readInt, writeInt } from "../_bytes.ts";
-
 
 export abstract class AnnounceRequest implements AnnounceInfo {
   /** SHA1 hash of the bencoded info dictionary */
@@ -55,7 +54,7 @@ export abstract class AnnounceRequest implements AnnounceInfo {
   /** Indicates whether or not the client accepts a compact response */
   compact!: CompactValue;
   /** Send a list of peers to the requesting client */
-  abstract respond(peers: PeerInfo[]): Promise<void>;
+  abstract respond(peers: AnnouncePeerInfo[]): Promise<void>;
   /** Send a failure response to the requesting client */
   abstract reject(reason: string): Promise<void>;
 }
@@ -71,10 +70,10 @@ export interface HttpAnnounceParams extends AnnounceInfo {
   httpRequest: HttpRequest;
 }
 
-function countPeers(peers: PeerInfo[]): [number, number] {
+function countPeers(peers: AnnouncePeerInfo[]): [number, number] {
   return peers.reduce(
     (counts, { state }) => {
-      counts[state === PeerState.seeder ? 0 : 1] += 1;
+      counts[state === AnnouncePeerState.seeder ? 0 : 1] += 1;
       return counts;
     },
     [0, 0],
@@ -96,7 +95,7 @@ export class HttpAnnounceRequest extends AnnounceRequest {
   }
 
   /** Send a list of peers to the requesting client */
-  respond(peers: PeerInfo[]): Promise<void> {
+  respond(peers: AnnouncePeerInfo[]): Promise<void> {
     try {
       const te = new TextEncoder();
       const [complete, incomplete] = countPeers(peers);
@@ -185,7 +184,7 @@ export class UdpAnnounceRequest extends AnnounceRequest {
   }
 
   /** Send a list of peers to the requesting client */
-  async respond(peers: PeerInfo[]): Promise<void> {
+  async respond(peers: AnnouncePeerInfo[]): Promise<void> {
     try {
       const body = new Uint8Array(20 + 6 * peers.length);
       const [complete, incomplete] = countPeers(peers);

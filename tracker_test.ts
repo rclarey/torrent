@@ -14,7 +14,8 @@ async function httpAnnounceFullServer() {
   const { value: req } = await s[Symbol.asyncIterator]().next();
   assertEquals(
     req.url,
-    "/?compact=1" + "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
+    "/?compact=1" +
+      "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
       "&peer_id=ABCDEFGHIJKLMNOPQRST" + "&ip=192.168.0.30" + "&port=6883" +
       "&uploaded=1" + "&downloaded=2" + "&left=3" + "&event=empty" +
       "&numwant=50",
@@ -50,7 +51,8 @@ async function httpAnnounceCompactServer() {
   const { value: req } = await s[Symbol.asyncIterator]().next();
   assertEquals(
     req.url,
-    "/?compact=1" + "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
+    "/?compact=1" +
+      "&info_hash=%ff%fe%fd%fc%fb%fa%f9%f8%f7%f6%f5%f4%f3%f2%f1%f0%ef%ee%ed%ec" +
       "&peer_id=ABCDEFGHIJKLMNOPQRST" + "&ip=192.168.0.30" + "&port=6883" +
       "&uploaded=1" + "&downloaded=2" + "&left=3" + "&event=empty" +
       "&numwant=50",

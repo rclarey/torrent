@@ -17,10 +17,13 @@ export function withTimeout<T>(
   func: () => Promise<T>,
   timeout: number,
 ): Promise<T> {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const to = setTimeout(() => reject(new TimeoutError()), timeout);
-    const result = await func();
-    clearTimeout(to);
-    resolve(result);
+    resolve(
+      func().then((r) => {
+        clearTimeout(to);
+        return r;
+      }),
+    );
   });
 }

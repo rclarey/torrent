@@ -6,7 +6,7 @@ import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 import { assert } from "./utils.ts";
 import { readInt, readN, writeInt } from "./_bytes.ts";
 
-export type Connection = Deno.Reader & Deno.Writer;
+export type Connection = Deno.Reader & Deno.Writer & Deno.Closer;
 
 export enum MsgId {
   choke = 0,
@@ -60,7 +60,7 @@ export async function startReceiveHandshake(
   return readN(conn, 20);
 }
 
-export async function endReceiveHandshake(
+export function endReceiveHandshake(
   conn: Deno.Reader,
 ): Promise<Uint8Array> {
   return readN(conn, 20);
@@ -208,11 +208,11 @@ export type PeerMsg =
   | PieceMsg
   | CancelMsg;
 
-export async function readMessage(conn: Connection) {
+export async function readMessage(conn: Connection): Promise<PeerMsg | null> {
   try {
     const length = readInt(await readN(conn, 4), 4, 0);
     if (length === 0) {
-      return { conn };
+      return { id: MsgId.keepalive };
     }
 
     const id = (await readN(conn, 1))[0];
@@ -265,7 +265,7 @@ export async function readMessage(conn: Connection) {
         return readMessage(conn);
       }
     }
-  } catch (e) {
+  } catch {
     // TODO logging
     return null;
   }

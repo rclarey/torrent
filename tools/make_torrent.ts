@@ -1,7 +1,12 @@
 // Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
 
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
-import { basename, join, relative, sep } from 'https://deno.land/x/std@0.98.0/path/mod.ts#^'
+import {
+  basename,
+  join,
+  relative,
+  sep,
+} from "https://deno.land/x/std@0.98.0/path/mod.ts#^";
 
 import { bencode } from "../bencode.ts";
 import { MultiFileFields } from "../metainfo.ts";
@@ -43,7 +48,10 @@ async function collectFiles(
         dirs.push(path);
       } else {
         size += info.size;
-        out.push({ length: info.size, path: relative(initialDir, path).split(sep), });
+        out.push({
+          length: info.size,
+          path: relative(initialDir, path).split(sep),
+        });
       }
     }
   }

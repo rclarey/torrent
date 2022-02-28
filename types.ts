@@ -29,7 +29,7 @@ export enum CompactValue {
   full = "0",
 }
 
-export interface Peer {
+export interface AnnouncePeer {
   /** IP address of the peer */
   ip: string;
   /** TCP port of the peer */
@@ -77,18 +77,18 @@ export type ScrapeData = {
   infoHash: Uint8Array;
 };
 
-export enum PeerState {
+export enum AnnouncePeerState {
   /** The peer has the whole file */
   seeder = "seeder",
   /** The peer does not have the whole file */
   leecher = "leecher",
 }
 
-export interface PeerInfo extends Peer {
+export interface AnnouncePeerInfo extends AnnouncePeer {
   /** Peer's self-selected ID */
   id: Uint8Array;
   /** Whether this peer is a leecher or seeder */
-  state: PeerState;
+  state: AnnouncePeerState;
 }
 
 export enum UdpTrackerAction {

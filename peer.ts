@@ -29,6 +29,7 @@ export class Peer {
       const msg = await readMessage(this.conn);
       if (!msg) {
         this.#onDisconnect(this);
+        return;
       }
     }
   }

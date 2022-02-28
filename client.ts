@@ -95,7 +95,7 @@ export class Client {
         await sendHandshake(conn, infoHash, this.peerId);
         const peerId = await endReceiveHandshake(conn);
 
-        torrent.newPeer(peerId, conn);
+        torrent.addPeer(peerId, conn);
       } catch (e) {
         console.error(e);
         conn.close();

@@ -8,8 +8,8 @@ import {
 } from "./tracker.ts";
 import {
   AnnounceEvent,
-  PeerInfo as BasePeerInfo,
-  PeerState,
+  AnnouncePeerInfo as BasePeerInfo,
+  AnnouncePeerState,
   ScrapeData,
 } from "../types.ts";
 
@@ -20,11 +20,11 @@ interface PeerInfo extends BasePeerInfo {
   lastUpdated: number;
 }
 
-function evaluateState(req: AnnounceRequest): PeerState {
+function evaluateState(req: AnnounceRequest): AnnouncePeerState {
   if (req.event === AnnounceEvent.completed || req.left === 0) {
-    return PeerState.seeder;
+    return AnnouncePeerState.seeder;
   }
-  return PeerState.leecher;
+  return AnnouncePeerState.leecher;
 }
 
 function randomSelection(
@@ -63,7 +63,7 @@ async function sweepAndDelete(allFiles: Map<string, FileInfo>): Promise<void> {
     for (const [id, peer] of fileInfo.peers.entries()) {
       if (Date.now() - peer.lastUpdated > CLEANUP_INTERVAL) {
         fileInfo.peers.delete(id);
-        if (peer.state === PeerState.seeder) {
+        if (peer.state === AnnouncePeerState.seeder) {
           fileInfo.complete -= 1;
         } else {
           fileInfo.incomplete -= 1;
@@ -105,7 +105,7 @@ function handleAnnounce(
       state,
     };
     fileInfo.peers.set(strPeerId, requester);
-    if (state === PeerState.leecher) {
+    if (state === AnnouncePeerState.leecher) {
       fileInfo.incomplete += 1;
     } else {
       fileInfo.complete += 1;
@@ -113,8 +113,8 @@ function handleAnnounce(
   } else {
     const newState = evaluateState(req);
     if (
-      requester.state === PeerState.leecher &&
-      newState === PeerState.seeder
+      requester.state === AnnouncePeerState.leecher &&
+      newState === AnnouncePeerState.seeder
     ) {
       fileInfo.incomplete -= 1;
       fileInfo.complete += 1;
@@ -129,7 +129,7 @@ function handleAnnounce(
     const peer = fileInfo.peers.get(strPeerId);
     if (peer) {
       fileInfo.peers.delete(strPeerId);
-      if (peer.state === PeerState.seeder) {
+      if (peer.state === AnnouncePeerState.seeder) {
         fileInfo.complete -= 1;
       } else {
         fileInfo.incomplete -= 1;
