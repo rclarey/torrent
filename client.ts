@@ -5,7 +5,7 @@ import {
   endReceiveHandshake,
   sendHandshake,
   startReceiveHandshake,
-} from "./peer.ts";
+} from "./protocol.ts";
 import { createFileStorage, Storage } from "./storage.ts";
 import { getIpAddrsAndMapPort } from "./upnp.ts";
 import { Torrent } from "./torrent.ts";
@@ -46,6 +46,8 @@ export class Client {
   constructor(config: ClientConfig = {}) {
     this.config = Object.assign(defaultClientConfig, config);
     this.peerId = peerIdFromPrefix(this.config.peerId);
+
+    this.run();
   }
 
   add(metainfo: Metainfo, dir: string): void {
@@ -64,7 +66,7 @@ export class Client {
     }
   }
 
-  async init() {
+  async run() {
     this.listener = Deno.listen({ port: this.config.port });
     const addr = this.listener.addr as Deno.NetAddr;
     // if config.port was 0, then we get a random free port so we should set
@@ -84,7 +86,8 @@ export class Client {
     for await (const conn of this.listener) {
       try {
         const infoHash = await startReceiveHandshake(conn);
-        if (!this.torrents.has(infoHash.toString())) {
+        const torrent = this.torrents.get(infoHash.toString());
+        if (!torrent) {
           conn.close();
           continue;
         }
@@ -92,7 +95,7 @@ export class Client {
         await sendHandshake(conn, infoHash, this.peerId);
         const peerId = await endReceiveHandshake(conn);
 
-        // TODO: do something with the new connection
+        torrent.newPeer(peerId, conn);
       } catch (e) {
         console.error(e);
         conn.close();

@@ -7,8 +7,11 @@ import {
 
 import { Storage } from "./storage.ts";
 import { Metainfo } from "./metainfo.ts";
+import type { Connection } from "./protocol.ts";
 import { announce } from "./tracker.ts";
 import { AnnounceEvent, AnnounceInfo, CompactValue } from "./types.ts";
+import { Peer } from "./peer";
+import { sendBitfield } from "./protocol";
 
 export interface TorrentParams {
   ip: string;
@@ -39,11 +42,14 @@ export class Torrent {
   metainfo: Metainfo;
   peerId: Uint8Array;
   storage: Storage;
+  bitfield: Uint8Array;
+  peers = new Map<string, Peer>();
 
   constructor({ ip, metainfo, peerId, port, storage }: TorrentParams) {
     this.metainfo = metainfo;
     this.peerId = peerId;
     this.storage = storage;
+    this.bitfield = new Uint8Array(Math.ceil(metainfo.pieces.length / 8));
 
     this.#announceInfo = {
       infoHash: metainfo.infoHash,
@@ -59,6 +65,31 @@ export class Torrent {
       key: crypto.getRandomValues(new Uint8Array(20)),
     };
 
+    this.run();
+  }
+
+  addPeer(id: string, conn: Connection) {
+    this.peers.set(
+      id,
+      new Peer({
+        id,
+        conn,
+        onDisconnect: (peer) => {
+          peer.conn.close();
+          this.peers.delete(peer.id);
+        },
+      }),
+    );
+    sendBitfield(conn, this.bitfield);
+  }
+
+  async requestPeers() {
+    this.#announceInfo.numWant = 50;
+    this.#announceSignal.resolve();
+  }
+
+  private run() {
+    // start announcer
     this.doAnnounce();
   }
 
@@ -87,11 +118,4 @@ export class Torrent {
       clearTimeout(to);
     }
   }
-
-  async requestPeers() {
-    this.#announceInfo.numWant = 50;
-    this.#announceSignal.resolve();
-  }
-
-  async download(): Promise<void> {}
 }
