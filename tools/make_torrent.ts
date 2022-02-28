@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 import {

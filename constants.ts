@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
 export const ANNOUNCE_DEFAULT_WANT = 50;
 export const ANNOUNCE_DEFAULT_INTERVAL = 600; // 10min

@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
 import { bdecode, bencode } from "./bencode.ts";
 import { arr, inst, num, obj, or, undef } from "./valid.ts";

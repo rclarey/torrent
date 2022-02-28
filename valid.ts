@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
 export type Validator<T> = (x: unknown) => x is T;
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2020-2021 Russell Clarey. All rights reserved. MIT license.
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
 import { bdecode, bdecodeBytestringMap, Bencodeable } from "./bencode.ts";
 import {
@@ -13,8 +13,8 @@ import {
 import {
   AnnounceEvent,
   AnnounceInfo,
-  CompactValue,
   AnnouncePeer,
+  CompactValue,
   ScrapeData,
   UDP_EVENT_MAP,
   UdpTrackerAction,
@@ -26,7 +26,7 @@ import { withTimeout } from "./utils.ts";
 function timedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   return withTimeout(
     () => fetch(url, { ...init, cache: "no-store" }),
-    FETCH_TIMEOUT
+    FETCH_TIMEOUT,
   );
 }
 
@@ -58,7 +58,7 @@ function parseHttpScrape(data: Uint8Array): ScrapeData[] {
 
 async function scrapeHttp(
   url: string,
-  infoHashes: Uint8Array[]
+  infoHashes: Uint8Array[],
 ): Promise<ScrapeData[]> {
   if (infoHashes.length > 0) {
     const strHashes = infoHashes.map(encodeBinaryData);
@@ -79,7 +79,7 @@ function deriveUdpError(action: UdpTrackerAction, arr: Uint8Array): Error {
 export async function withConnect<T>(
   url: string,
   reqBody: Uint8Array,
-  func: (response: Uint8Array) => T
+  func: (response: Uint8Array) => T,
 ): Promise<T> {
   const match = url.match(/udp:\/\/(.+?):(\d+)\/?/);
   if (!match) {
@@ -105,7 +105,7 @@ export async function withConnect<T>(
       connectBody.set(UDP_CONNECT_MAGIC, 0);
       writeInt(UdpTrackerAction.connect, connectBody, 4, 8);
       const transactionId = crypto.getRandomValues(
-        connectBody.subarray(12, 16)
+        connectBody.subarray(12, 16),
       );
 
       let res: Uint8Array;
@@ -173,7 +173,7 @@ export async function withConnect<T>(
 
 function scrapeUdp(
   url: string,
-  infoHashes: Uint8Array[]
+  infoHashes: Uint8Array[],
 ): Promise<ScrapeData[]> {
   const body = new Uint8Array(16 + 20 * infoHashes.length);
   writeInt(UdpTrackerAction.scrape, body, 4, 8);
@@ -213,7 +213,7 @@ function scrapeUdp(
  */
 export function scrape(
   url: string,
-  infoHashes: Uint8Array[]
+  infoHashes: Uint8Array[],
 ): Promise<ScrapeData[]> {
   const protocol = url.slice(0, url.indexOf("://"));
   switch (protocol) {
@@ -226,7 +226,7 @@ export function scrape(
       }
       return scrapeHttp(
         `${url.slice(0, ind)}scrape${url.slice(ind + 8)}`,
-        infoHashes
+        infoHashes,
       );
     }
 
@@ -272,8 +272,8 @@ const validateHttpAnnounce = obj({
         ip: inst(Uint8Array),
         port: num,
         "peer id": or(undef, inst(Uint8Array)),
-      })
-    )
+      }),
+    ),
   ),
 });
 
@@ -292,7 +292,7 @@ function parseHttpAnnounce(data: Uint8Array): AnnounceResponse {
     decoded["failure reason"] instanceof Uint8Array
   ) {
     throw new Error(
-      `tracker sent error: ${td.decode(decoded["failure reason"])}`
+      `tracker sent error: ${td.decode(decoded["failure reason"])}`,
     );
   }
 
@@ -329,7 +329,7 @@ function makeUrl(base: string, params: Record<string, string>): string {
 
 async function announceHttp(
   baseUrl: string,
-  info: AnnounceInfo
+  info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
   const url = makeUrl(baseUrl, {
     compact: CompactValue.compact,
@@ -352,7 +352,7 @@ const NEGATIVE_ONE = 2 ** 32 - 1;
 
 function announceUdp(
   url: string,
-  info: AnnounceInfo
+  info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
   const ipParts = info.ip.split(".").map(Number);
   if (ipParts.length !== 4 || ipParts.some((n) => Number.isNaN(n))) {
@@ -401,7 +401,7 @@ function announceUdp(
 /** Make an announce request to the tracker URL */
 export function announce(
   url: string,
-  info: AnnounceInfo
+  info: AnnounceInfo,
 ): Promise<AnnounceResponse> {
   const protocol = url.slice(0, url.indexOf("://"));
   switch (protocol) {
