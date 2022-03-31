@@ -1,23 +1,23 @@
 // Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
 
-import { InfoDict, Metainfo } from "./metainfo.ts";
+import { Metainfo } from "./metainfo.ts";
 import {
   endReceiveHandshake,
   sendHandshake,
   startReceiveHandshake,
 } from "./protocol.ts";
-import { createFileStorage, Storage } from "./storage.ts";
+import { fileStorage, Storage, StorageMethod } from "./storage.ts";
 import { getIpAddrsAndMapPort } from "./upnp.ts";
 import { Torrent } from "./torrent.ts";
 
 export interface ClientConfig {
-  storage?: (info: InfoDict, dir: string) => Storage;
+  storage?: StorageMethod;
   port?: number;
   peerId?: string;
 }
 
 export const defaultClientConfig: Required<ClientConfig> = {
-  storage: createFileStorage,
+  storage: fileStorage,
   port: 0,
   peerId: "-DT0000-",
 };
@@ -60,7 +60,7 @@ export class Client {
           metainfo,
           peerId: this.peerId,
           port: this.config.port,
-          storage: this.config.storage(metainfo.info, dir),
+          storage: new Storage(this.config.storage, metainfo.info, dir),
         }),
       );
     }

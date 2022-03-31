@@ -35,6 +35,8 @@ export interface MultiFileFields {
 export interface MultiFileInfoDict extends CommonInfoDict {
   /** the name of the directory in which to store all the files */
   name: string;
+  /** the total length of all of the file in bytes */
+  length: number;
   /** length and path information for each of the files */
   files: MultiFileFields[];
 }
@@ -113,12 +115,14 @@ export async function parseMetainfo(
 
     let info: InfoDict;
     if ("files" in decoded.info) {
+      const files = decoded.info.files.map((file) => ({
+        length: file.length,
+        path: file.path.map((x) => td.decode(x)),
+      }));
       info = {
         ...commonInfo,
-        files: decoded.info.files.map((file) => ({
-          length: file.length,
-          path: file.path.map((x) => td.decode(x)),
-        })),
+        files,
+        length: files.reduce((n, f) => n + f.length, 0),
       };
     } else {
       info = {
