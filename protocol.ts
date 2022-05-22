@@ -217,7 +217,6 @@ export async function readMessage(conn: Connection): Promise<PeerMsg | null> {
 
     const id = (await readN(conn, 1))[0];
 
-    // choke, unchoke, interested, uninterested
     switch (id) {
       case MsgId.choke:
       case MsgId.unchoke:

@@ -1,36 +1,27 @@
-import { Connection, readMessage } from "./protocol.ts";
+// Copyright (C) 2020-2022 Russell Clarey. All rights reserved. MIT license.
+
+import { Metainfo } from "./metainfo.ts";
+import { Connection } from "./protocol.ts";
 
 export interface PeerParams {
   id: string;
   conn: Connection;
-  onDisconnect: (p: Peer) => void;
+  metainfo: Metainfo;
 }
 
 export class Peer {
-  #onDisconnect: (p: Peer) => void;
-
   id: string;
   conn: Connection;
+  bitfield: Uint8Array;
 
-  constructor({ id, conn, onDisconnect }: PeerParams) {
+  isChoking = true;
+  isInterested = false;
+  amChoking = true;
+  amInterested = false;
+
+  constructor({ id, conn, metainfo }: PeerParams) {
     this.id = id;
     this.conn = conn;
-    this.#onDisconnect = onDisconnect;
-
-    this.run();
-  }
-
-  private run() {
-    this.handleMessages();
-  }
-
-  private async handleMessages() {
-    while (true) {
-      const msg = await readMessage(this.conn);
-      if (!msg) {
-        this.#onDisconnect(this);
-        return;
-      }
-    }
+    this.bitfield = new Uint8Array(Math.ceil(metainfo.info.pieces.length / 8));
   }
 }

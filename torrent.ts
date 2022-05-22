@@ -7,7 +7,6 @@ import {
 
 import { Storage } from "./storage.ts";
 import { Metainfo } from "./metainfo.ts";
-import type { Connection } from "./protocol.ts";
 import { announce } from "./tracker.ts";
 import {
   AnnounceEvent,
@@ -17,12 +16,17 @@ import {
 } from "./types.ts";
 import { Peer } from "./peer.ts";
 import {
+  Connection,
   endReceiveHandshake,
+  MsgId,
+  readMessage,
   sendBitfield,
   sendHandshake,
+  sendPiece,
   startReceiveHandshake,
 } from "./protocol.ts";
 import { equals } from "./_bytes.ts";
+import { validateReceivedBlock, validateRequestedBlock } from "./piece.ts";
 
 export interface TorrentParams {
   ip: string;
@@ -36,13 +40,6 @@ const enum TorrentState {
   starting,
   downloading,
   seeding,
-}
-
-function totalSize(metainfo: Metainfo): number {
-  if ("length" in metainfo.info) {
-    return metainfo.info.length;
-  }
-  return metainfo.info.files.reduce((acc, file) => acc + file.length, 0);
 }
 
 export class Torrent {
@@ -69,7 +66,7 @@ export class Torrent {
       port,
       uploaded: 0,
       downloaded: 0,
-      left: totalSize(metainfo),
+      left: metainfo.info.length,
       event: AnnounceEvent.started,
       numWant: 50,
       compact: CompactValue.compact,
@@ -81,16 +78,26 @@ export class Torrent {
 
   addPeer(buffId: Uint8Array, conn: Connection) {
     const id = new TextDecoder().decode(buffId);
-    const onDisconnect = (peer: Peer) => {
-      try {
-        peer.conn.close();
-      } catch {
-        // do nothing
-      }
-      this.peers.delete(peer.id);
-    };
+    const peer = new Peer({
+      id,
+      conn,
+      metainfo: this.metainfo,
+    });
+    this.peers.set(id, peer);
 
-    this.peers.set(id, new Peer({ id, conn, onDisconnect }));
+    this.handleMessages(peer)
+      .catch((e) => {
+        console.error(`peer ${peer.id} threw ${e}`);
+      })
+      .then(() => {
+        try {
+          peer.conn.close();
+        } catch {
+          // do nothing
+        }
+        this.peers.delete(peer.id);
+      });
+
     sendBitfield(conn, this.bitfield);
   }
 
@@ -102,6 +109,90 @@ export class Torrent {
   private run() {
     // start announcer
     this.doAnnounce();
+  }
+
+  private async handleMessages(peer: Peer) {
+    while (true) {
+      const msg = await readMessage(peer.conn);
+
+      if (!msg) {
+        return;
+      }
+
+      switch (msg.id) {
+        case MsgId.choke: {
+          peer.isChoking = true;
+          break;
+        }
+
+        case MsgId.unchoke: {
+          peer.isChoking = false;
+          break;
+        }
+
+        case MsgId.interested: {
+          peer.isInterested = true;
+          break;
+        }
+
+        case MsgId.uninterested: {
+          peer.isInterested = false;
+          break;
+        }
+
+        case MsgId.have: {
+          if (msg.index >= this.metainfo.info.pieces.length) {
+            throw new Error(`have message with invalid index ${msg.index}`);
+          }
+          const byte = msg.index >> 3;
+          const bit = msg.index % 8;
+          peer.bitfield[byte] |= 128 >> bit;
+          break;
+        }
+
+        case MsgId.bitfield: {
+          peer.bitfield.set(msg.bitfield);
+          break;
+        }
+
+        case MsgId.request: {
+          validateRequestedBlock(this.metainfo.info, msg);
+          if (peer.amChoking) {
+            // TODO log request from chocked peer. should we drop peer?
+            break;
+          }
+          const block = await this.storage.get(
+            msg.index * this.metainfo.info.pieceLength + msg.offset,
+            msg.length,
+          );
+          if (!block) {
+            // TODO log request for piece we don't have. should we drop peer?
+            break;
+          }
+          sendPiece(peer.conn, msg.index, msg.offset, block).catch(() => {
+            // TODO log error
+          });
+          break;
+        }
+
+        case MsgId.cancel: {
+          // TODO
+          break;
+        }
+
+        case MsgId.piece: {
+          validateReceivedBlock(this.metainfo.info, msg);
+          const success = await this.storage.set(
+            msg.index * this.metainfo.info.pieceLength + msg.offset,
+            msg.block,
+          );
+          if (!success) {
+            // TODO log error
+          }
+          break;
+        }
+      }
+    }
   }
 
   private handleNewPeers(peers: AnnouncePeer[]) {
@@ -134,7 +225,6 @@ export class Torrent {
     let interval = 0;
     while (true) {
       try {
-        console.log(this.#announceInfo.event);
         const res = await announce(this.metainfo.announce, this.#announceInfo);
         interval = res.interval;
         this.#announceInfo.numWant = 0;

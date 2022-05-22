@@ -9,6 +9,7 @@ import {
 import { writeAll } from "https://deno.land/std@0.96.0/io/util.ts#^";
 
 import type { InfoDict } from "./metainfo.ts";
+import { BLOCK_SIZE } from "./piece.ts";
 import { readN } from "./_bytes.ts";
 
 /** A method of persisting the downloaded files, e.g. on the local filesystem */
@@ -23,8 +24,6 @@ export interface StorageMethod {
   /** returns whether or not the file already exists */
   exists(path: string[]): Promise<boolean>;
 }
-
-export const BLOCK_SIZE = 1024 * 16;
 
 const OPEN_OPTIONS = {
   read: true,
@@ -49,8 +48,6 @@ export class Storage {
   }
 
   async get(offset: number, length: number): Promise<Uint8Array | null> {
-    this.checkIfValidBlock(offset, length);
-
     const bytes = new Uint8Array(length);
     const success = await this.findAndDo(
       offset,
@@ -68,8 +65,6 @@ export class Storage {
   }
 
   async set(offset: number, bytes: Uint8Array): Promise<boolean> {
-    this.checkIfValidBlock(offset, bytes.length);
-
     const index = offset / BLOCK_SIZE;
     if (this.#written[index]) {
       // TODO log error
@@ -89,34 +84,6 @@ export class Storage {
     }
 
     return success;
-  }
-
-  private checkIfValidBlock(offset: number, length: number): void {
-    if (offset % BLOCK_SIZE !== 0) {
-      // TODO log error
-      throw new Error(`invalid block offset: ${offset}`);
-    }
-
-    const nPiece = Math.floor(offset / this.#info.pieceLength);
-    const pieceLength = nPiece === this.#info.pieces.length - 1
-      ? this.#info.length % this.#info.pieceLength
-      : this.#info.pieceLength;
-    const numBlocks = Math.ceil(pieceLength / BLOCK_SIZE);
-    const pieceOffset = offset -
-      Math.max(0, nPiece - 1) * this.#info.pieceLength;
-    const nBlock = Math.floor(pieceOffset / BLOCK_SIZE);
-
-    if (nPiece === this.#info.pieces.length - 1 && nBlock === numBlocks - 1) {
-      const lastBlockLength =
-        (this.#info.length % this.#info.pieceLength) % BLOCK_SIZE || BLOCK_SIZE;
-      if (length !== lastBlockLength) {
-        // TODO log error
-        throw new Error(`invalid last block length: ${length}`);
-      }
-    } else if (length !== BLOCK_SIZE) {
-      // TODO log error
-      throw new Error(`invalid block length: ${length}`);
-    }
   }
 
   private async findAndDo(
